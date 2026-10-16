@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FOZZ.CO | Premium Streetwear & Relational Commerce</title>
+  <meta name="description" content="Platform e-commerce streetwear eksklusif FOZZ.CO dengan arsitektur database relasional PostgreSQL dan otentikasi role-based Zero-Trust.">
+
+  <!-- Google Fonts: Syne (Headings), Plus Jakarta Sans (Body), JetBrains Mono (Code/Resi) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Quick Role Switcher Bar (Demo Bar for testing customer vs admin access) -->
+  <div class="role-bar" id="role-bar">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <span class="role-bar-badge" id="current-role-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span id="role-label">CUSTOMER: Ivan Pratama</span>
+      </span>
+      <span style="color: var(--text-muted); font-size: 0.75rem;">(Berdasarkan Dokumen Otentikasi & Otorisasi FOZZ.CO)</span>
+    </div>
+
+    <div class="role-bar-actions">
+      <span style="color: var(--text-muted); font-size: 0.75rem;">Mode Akses:</span>
+      <button class="role-btn active" id="btn-switch-customer" onclick="app.switchRole('customer')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8M8 12h8"></path></svg>
+        Portal Publik (Customer)
+      </button>
+      <button class="role-btn" id="btn-switch-admin" onclick="app.switchRole('admin')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        HQ Portal (Admin CMS)
+      </button>
+      <button class="role-btn" onclick="app.openSchemaModal()" style="border-color: rgba(255, 51, 75, 0.4);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+        Lihat Skema DB
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CUSTOMER STOREFRONT VIEW -->
+  <div id="customer-view">
+    <!-- Navbar -->
+    <header class="navbar">
+      <div class="nav-brand" onclick="app.navigateTo('catalog')">
+        <span class="brand-logo-text">FOZZ<span class="brand-dot">.</span>CO</span>
+        <span class="brand-tagline">STREETWEAR</span>
+      </div>
+
+      <ul class="nav-links">
+        <li class="nav-link active" onclick="app.navigateTo('catalog')">Katalog Produk</li>
+        <li class="nav-link" onclick="app.filterByCategory('Outerwear')">Outerwear</li>
+        <li class="nav-link" onclick="app.filterByCategory('Hoodie')">Hoodies</li>
+        <li class="nav-link" onclick="app.filterByCategory('Pants')">Pants</li>
+        <li class="nav-link" onclick="app.openOrderHistory()">Riwayat Pesanan</li>
+      </ul>
+
+      <div class="nav-actions">
+        <!-- Wishlist Button -->
+        <button class="icon-btn" onclick="app.openWishlistModal()" title="Wishlist">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+          <span class="badge-count" id="wishlist-badge">0</span>
+        </button>
+
+        <!-- Cart Button -->
+        <button class="icon-btn" onclick="app.toggleCartDrawer(true)" title="Keranjang Belanja">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          <span class="badge-count" id="cart-badge">0</span>
+        </button>
+
+        <!-- User Profile Avatar -->
+        <button class="btn-secondary" onclick="app.openProfileModal()" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          <span id="nav-user-name">Ivan Pratama</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero Showcase Section -->
+    <section class="hero-section">
+      <div class="hero-glow-bg"></div>
+      <div class="hero-pill">
+        <span class="live-dot"></span>
+        <span>AUTUMN/WINTER '26 EXCLUSIVE DROP</span>
+      </div>
+      <h1 class="hero-title">ARCHITECTURAL <span class="highlight">STREETWEAR</span></h1>
+      <p class="hero-desc">
+        Koleksi eksklusif dengan presisi siluet modern, material kelas tertinggi, dan sistem transaksi berintegritas tinggi dengan proteksi stok atomik.
+      </p>
+
+      <div class="hero-stats">
+        <div class="hero-stat-item">
+          <div class="hero-stat-value">100%</div>
+          <div class="hero-stat-label">Zero Overselling</div>
+        </div>
+        <div class="hero-stat-item">
+          <div class="hero-stat-value">POSTGRESQL</div>
+          <div class="hero-stat-label">Relational Integrity</div>
+        </div>
+        <div class="hero-stat-item">
+          <div class="hero-stat-value">ZERO-TRUST</div>
+          <div class="hero-stat-label">Security Architecture</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters & Search Toolbar -->
+    <section class="filter-bar">
+      <div class="category-pills" id="category-pills">
+        <button class="cat-btn active" onclick="app.filterByCategory('ALL')">Semua Koleksi</button>
+        <button class="cat-btn" onclick="app.filterByCategory('Outerwear')">Outerwear</button>
+        <button class="cat-btn" onclick="app.filterByCategory('Hoodie')">Hoodies</button>
+        <button class="cat-btn" onclick="app.filterByCategory('Pants')">Pants</button>
+        <button class="cat-btn" onclick="app.filterByCategory('T-Shirt')">T-Shirts</button>
+        <button class="cat-btn" onclick="app.filterByCategory('Accessories')">Accessories</button>
+      </div>
+
+      <div class="filter-actions">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="catalog-search-input" placeholder="Cari nama produk, bahan..." oninput="app.handleSearch(this.value)">
+        </div>
+
+        <select class="size-filter-select" id="size-filter-select" onchange="app.handleSizeFilter(this.value)">
+          <option value="">Semua Ukuran</option>
+          <option value="S">Size S</option>
+          <option value="M">Size M</option>
+          <option value="L">Size L</option>
+          <option value="XL">Size XL</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Product Catalog Grid -->
+    <main class="catalog-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">KATALOG RILIS RESMI</h2>
+          <p class="section-subtitle">Tersedia per varian ukuran dengan sinkronisasi stok realtime</p>
+        </div>
+        <span style="font-size: 0.85rem; color: var(--text-muted);" id="product-count-label">Menampilkan produk</span>
+      </div>
+
+      <div class="products-grid" id="products-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+    </main>
+  </div>
+
+  <!-- ADMIN CMS VIEW (HQ PORTAL) -->
+  <div id="admin-view" style="display: none;">
+    <div class="admin-layout">
+      <!-- Admin Sidebar -->
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-header">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span class="brand-logo-text" style="font-size: 1.25rem;">FOZZ<span class="brand-dot">.</span>HQ</span>
+            <span class="admin-badge">ADMIN</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">
+            Portal Tersembunyi: <code class="mono-text" style="color: var(--accent-red);">fozz.co/hq-portal</code>
+          </div>
+        </div>
+
+        <nav>
+          <div class="admin-nav-item active" onclick="app.switchAdminTab('dashboard')" id="tab-btn-dashboard">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+            <span>Analitik & Laporan</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('inventory')" id="tab-btn-inventory">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <span>Manajemen Inventaris</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('orders')" id="tab-btn-orders">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            <span>Fulfillment Pesanan</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('customers')" id="tab-btn-customers">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Manajemen Pelanggan</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.openSchemaModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            <span>Inspeksi Skema SQL</span>
+          </div>
+        </nav>
+
+        <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+          <div class="zero-trust-box" style="margin-bottom: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.72rem;">
+            <strong>Zero-Trust Active:</strong> Admin tidak memiliki hak melihat plain password atau data rahasia pembayaran.
+          </div>
+          <button class="btn-secondary" style="width: 100%; justify-content: center; font-size: 0.8rem;" onclick="app.switchRole('customer')">
+            Kembali ke Storefront
+          </button>
+        </div>
+      </aside>
+
+      <!-- Admin Main Content Area -->
+      <main class="admin-main">
+        <!-- Sub-View: Dashboard Analytics -->
+        <section id="admin-subview-dashboard">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Analitik & Laporan Bisnis</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Ringkasan transaksi riil, performa penjualan, dan produk terlaris (Best Sellers)</p>
+            </div>
+            <button class="btn-primary" onclick="app.openAddProductModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Rilis Koleksi Baru (New Drop)
+            </button>
+          </div>
+
+          <div class="stats-grid" id="analytics-stats-cards">
+            <!-- Injected dynamically -->
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+            <div class="stat-card">
+              <h3 style="font-size: 1.05rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>Pesanan Terbaru yang Masuk</span>
+                <button class="role-btn" onclick="app.switchAdminTab('orders')">Kelola Semua Pesanan</button>
+              </h3>
+              <div class="table-container">
+                <table class="data-table" id="dashboard-recent-orders-table">
+                  <!-- Injected -->
+                </table>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <h3 style="font-size: 1.05rem; margin-bottom: 1rem;">Produk Terlaris (Best Sellers)</h3>
+              <div id="best-sellers-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Injected -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sub-View: Inventory Management -->
+        <section id="admin-subview-inventory" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Manajemen Inventaris & Drops</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Kelola tabel <code class="mono-text">products</code> dan stok dinamis <code class="mono-text">product_sizes</code></p>
+            </div>
+            <button class="btn-primary" onclick="app.openAddProductModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Tambah Produk Baru
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="admin-inventory-table">
+              <thead>
+                <tr>
+                  <th>Produk</th>
+                  <th>Kategori</th>
+                  <th>Harga Satuan</th>
+                  <th>Stok per Ukuran (Tabel product_sizes)</th>
+                  <th>Total Stok</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-table-body">
+                <!-- Injected -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Sub-View: Orders Fulfillment -->
+        <section id="admin-subview-orders" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Pemrosesan Pesanan (Fulfillment)</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Validasi status <code class="mono-text">orders</code>, alokasi resi ekspedisi (Airway Bill), dan penanganan fraud</p>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>No. Order</th>
+                  <th>Pelanggan</th>
+                  <th>Item Terkunci (order_items)</th>
+                  <th>Total Bayar</th>
+                  <th>Status</th>
+                  <th>Nomor Resi</th>
+                  <th>Aksi Fulfillment</th>
+                </tr>
+              </thead>
+              <tbody id="admin-orders-table-body">
+                <!-- Injected -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Sub-View: Customers Management -->
+        <section id="admin-subview-customers" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Manajemen Pelanggan</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Direktori pengguna terdaftar berdasarkan tabel <code class="mono-text">users</code></p>
+            </div>
+          </div>
+
+          <div class="zero-trust-box">
+            <strong>BATASAN KEAMANAN (ZERO-TRUST):</strong> Staf Administrator tidak pernah memiliki akses untuk melihat kata sandi asli (plaintext). Kolom kata sandi di bawah terenkripsi dengan algoritma hash aman (Bcrypt/Argon2).
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Nama Lengkap</th>
+                  <th>Email (Unique)</th>
+                  <th>Role</th>
+                  <th>Kontak</th>
+                  <th>Password Hash (Zero-Trust)</th>
+                  <th>Status Akun</th>
+                </tr>
+              </thead>
+              <tbody id="admin-customers-table-body">
+                <!-- Injected -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- PRODUCT DETAIL MODAL -->
+  <div class="modal-overlay" id="product-detail-modal">
+    <div class="modal-content" style="max-width: 900px;">
+      <button class="modal-close-btn" onclick="app.closeModal('product-detail-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <div class="product-modal-grid">
+        <img src="" id="modal-product-img" class="product-modal-img" alt="Product preview">
+        <div class="product-modal-info">
+          <span class="product-category" id="modal-product-category">Outerwear</span>
+          <h2 id="modal-product-title" style="font-size: 1.6rem; margin-bottom: 0.5rem;">Product Name</h2>
+          <div id="modal-product-price" class="product-price" style="font-size: 1.7rem; color: var(--accent-red); margin-bottom: 1rem;">Rp 0</div>
+          
+          <p id="modal-product-desc" style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem;">
+            Deskripsi material dan spesifikasi siluet.
+          </p>
+
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Pilih Ukuran (Size Stock)</label>
+              <span id="selected-size-stock-label" style="font-size: 0.75rem; color: var(--accent-green); font-weight: 600;"></span>
+            </div>
+            <div class="size-selector-group" id="modal-sizes-group">
+              <!-- Injected -->
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; margin-top: auto; padding-top: 1rem;">
+            <button class="btn-primary" id="btn-modal-add-to-cart" style="flex-grow: 1; justify-content: center;" onclick="app.addModalProductToCart()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+              Tambah ke Keranjang
+            </button>
+            <button class="btn-secondary" id="btn-modal-wishlist" onclick="app.toggleWishlistFromModal()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CART SLIDE-OUT DRAWER -->
+  <div class="cart-drawer-overlay" id="cart-drawer-overlay" onclick="if(event.target === this) app.toggleCartDrawer(false)">
+    <div class="cart-drawer">
+      <div class="drawer-header">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <h3 style="font-size: 1.15rem;">Keranjang Belanja</h3>
+          <span class="role-bar-badge" id="cart-items-count-badge">0 Item</span>
+        </div>
+        <button class="modal-close-btn" style="position: static;" onclick="app.toggleCartDrawer(false)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="drawer-body" id="cart-drawer-body">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <div class="drawer-footer" id="cart-drawer-footer">
+        <div class="summary-row">
+          <span>Subtotal Produk</span>
+          <span id="cart-subtotal" class="mono-text">Rp 0</span>
+        </div>
+        <div class="summary-row">
+          <span>Estimasi Ekspedisi</span>
+          <span class="mono-text" style="color: var(--accent-green);">Rp 20.000</span>
+        </div>
+        <div class="summary-row total">
+          <span>Total Tagihan</span>
+          <span id="cart-total" class="mono-text" style="color: var(--accent-red);">Rp 0</span>
+        </div>
+        <button class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem; padding: 0.85rem;" onclick="app.openCheckoutModal()">
+          Lanjut ke Pembayaran (Checkout)
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHECKOUT & PAYMENT GATEWAY SIMULATION MODAL -->
+  <div class="modal-overlay" id="checkout-modal">
+    <div class="modal-content" style="max-width: 680px; padding: 2rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('checkout-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="brand-tagline">INTEGRASI TRANSAKSI RELASIONAL</span>
+        <h2 style="font-size: 1.5rem; margin-top: 0.25rem;">Checkout & Konfirmasi Alamat</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Sistem akan membuat record di tabel <code class="mono-text">orders</code> & mengunci rincian barang di <code class="mono-text">order_items</code>.</p>
+      </div>
+
+      <form id="checkout-form" onsubmit="app.processCheckout(event)">
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Alamat Pengiriman (Tujuan Logistik)</label>
+          <textarea id="checkout-address" rows="3" style="width: 100%;" required placeholder="Masukkan alamat lengkap pengiriman..."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Pilih Kurir Ekspedisi</label>
+            <select id="checkout-courier" style="width: 100%;">
+              <option value="J&T Express Super (Reguler)">J&T Express Super - Rp 20.000</option>
+              <option value="SiCepat BEST (Next Day)">SiCepat BEST - Rp 25.000</option>
+              <option value="JNE YES (Overnight)">JNE YES - Rp 30.000</option>
+              <option value="DHL Express Premium">DHL Express Premium - Rp 45.000</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Metode Pembayaran</label>
+            <select id="checkout-payment-method" style="width: 100%;">
+              <option value="qris">QRIS Instant Payment</option>
+              <option value="va_bca">BCA Virtual Account</option>
+              <option value="credit_card">Credit Card (Zero-Trust Tokenized)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Zero-Trust Payment Gateway Notice -->
+        <div class="zero-trust-box" style="margin-bottom: 1.5rem;">
+          <strong>ZERO-TRUST INTEGRATION:</strong> FOZZ.CO tidak menyimpan nomor kartu kredit atau detail perbankan di database kami. Kredensial diproses melalui simulasi Payment Gateway terenkripsi.
+        </div>
+
+        <!-- Order Summary Box -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem;">
+          <div class="summary-row">
+            <span>Total Nilai Pesanan:</span>
+            <span id="checkout-grand-total" class="mono-text" style="font-weight: 800; font-size: 1.15rem; color: var(--accent-red);">Rp 0</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.35rem;">
+            * Trigger atomik akan otomatis mengurangi stok di tabel <code class="mono-text">product_sizes</code> saat transaksi diverifikasi (Paid).
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 0.95rem;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          Selesaikan Pembayaran Sekarang
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ORDER HISTORY & LOGISTICS TRACKING MODAL -->
+  <div class="modal-overlay" id="order-history-modal">
+    <div class="modal-content" style="max-width: 820px; padding: 2rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('order-history-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="brand-tagline">PELACAKAN PESANAN REAL-TIME</span>
+        <h2 style="font-size: 1.5rem; margin-top: 0.25rem;">Riwayat & Status Pesanan Anda</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Memantau alur logistik dari status Paid hingga diterbitkan Nomor Resi (Airway Bill) oleh Admin.</p>
+      </div>
+
+      <div id="order-history-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- USER PROFILE MODAL -->
+  <div class="modal-overlay" id="user-profile-modal">
+    <div class="modal-content" style="max-width: 520px; padding: 2rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('user-profile-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="brand-tagline">MANAJEMEN PROFIL PRIBADI</span>
+        <h2 style="font-size: 1.4rem; margin-top: 0.25rem;">Informasi Akun Pelanggan</h2>
+      </div>
+
+      <form onsubmit="app.saveProfile(event)">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Nama Lengkap</label>
+          <input type="text" id="profile-name" style="width: 100%;" required>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Alamat Email (Unique)</label>
+          <input type="email" id="profile-email" style="width: 100%;" required readonly style="opacity: 0.7;">
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Nomor Telepon</label>
+          <input type="text" id="profile-phone" style="width: 100%;" required>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Alamat Pengiriman Utama</label>
+          <textarea id="profile-address" rows="3" style="width: 100%;"></textarea>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">
+          Simpan Pembaruan Profil
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN: ADD NEW DROP MODAL -->
+  <div class="modal-overlay" id="add-product-modal">
+    <div class="modal-content" style="max-width: 650px; padding: 2rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('add-product-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="admin-badge">CMS FOZZ HQ</span>
+        <h2 style="font-size: 1.4rem; margin-top: 0.25rem;">Rilis Koleksi Baru (New Drop)</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Menyisipkan entri ke <code class="mono-text">products</code> dan generate record stok ukuran di <code class="mono-text">product_sizes</code>.</p>
+      </div>
+
+      <form onsubmit="app.handleAddNewProduct(event)">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Nama Produk</label>
+          <input type="text" id="new-prod-name" placeholder="Misal: Heavy Distressed Vintage Jacket" style="width: 100%;" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Kategori</label>
+            <select id="new-prod-cat" style="width: 100%;">
+              <option value="Outerwear">Outerwear</option>
+              <option value="Hoodie">Hoodie</option>
+              <option value="Pants">Pants</option>
+              <option value="T-Shirt">T-Shirt</option>
+              <option value="Accessories">Accessories</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Harga Ritel (IDR)</label>
+            <input type="number" id="new-prod-price" placeholder="650000" style="width: 100%;" required>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Deskripsi & Detail Bahan</label>
+          <textarea id="new-prod-desc" rows="3" style="width: 100%;" placeholder="Detail siluet, gramasi katun, hardware, dan panduan fitting..." required></textarea>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">URL Gambar Aset Resolusi Tinggi</label>
+          <input type="url" id="new-prod-img" placeholder="https://images.unsplash.com/..." style="width: 100%;" required>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem;">Alokasi Stok Awal per Ukuran (Tabel product_sizes):</label>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size S</span>
+              <input type="number" id="new-stock-s" value="5" min="0" style="width: 100%;">
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size M</span>
+              <input type="number" id="new-stock-m" value="10" min="0" style="width: 100%;">
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size L</span>
+              <input type="number" id="new-stock-l" value="8" min="0" style="width: 100%;">
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size XL</span>
+              <input type="number" id="new-stock-xl" value="4" min="0" style="width: 100%;">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">
+          Publikasikan Rilis Produk (Insert Database)
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- DATABASE SCHEMA INSPECTION MODAL -->
+  <div class="modal-overlay" id="schema-modal">
+    <div class="modal-content" style="max-width: 900px; padding: 2.25rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('schema-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="brand-tagline">ARSITEKTUR DATABASE RELASIONAL (POSTGRESQL)</span>
+        <h2 style="font-size: 1.6rem; margin-top: 0.25rem;">Dokumen Skema & Relasi FOZZ.CO</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Berdasarkan dokumen teknis <code class="mono-text">Skema Database fozz.co.pdf</code> & <code class="mono-text">Sistem Otentikasi & Otorisasi fozz.co.pdf</code>
+        </p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Relational Flow Banner -->
+        <div style="background: rgba(255, 51, 75, 0.08); border: 1px solid rgba(255, 51, 75, 0.3); border-radius: var(--radius-sm); padding: 1.25rem;">
+          <h4 style="color: var(--accent-red); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+            Alur Relasional & Trigger Atomik
+          </h4>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
+            Saat checkout, record induk dibuat di <code class="mono-text">orders</code> untuk merekam alamat dan tagihan akhir. Rincian belanja disimpan terpisah di <code class="mono-text">order_items</code> terikat kuat (<code class="mono-text">Foreign Key</code>) ke pesanan dan produk aslinya dengan <strong style="color: #fff;">harga terkunci</strong>. Setelah berstatus <span class="status-pill status-paid">Paid</span>, trigger atomik mengurangi stok pada <code class="mono-text">product_sizes</code> untuk mencegah <em>overselling</em> saat rilis eksklusif.
+          </p>
+        </div>
+
+        <!-- 5 Database Tables Breakdown -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+          <!-- 1. Users Table -->
+          <div class="stat-card" style="padding: 1rem;">
+            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">1. Tabel users</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
+              - id (UUID / PK)<br>
+              - nama_lengkap (Varchar)<br>
+              - email (Varchar, UNIQUE)<br>
+              - password_hash (Varchar, Bcrypt/Argon2)<br>
+              - role (Varchar: 'admin' | 'customer')<br>
+              - no_telepon (Varchar)<br>
+              - created_at (Timestamp)
+            </div>
+          </div>
+
+          <!-- 2. Products Table -->
+          <div class="stat-card" style="padding: 1rem;">
+            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">2. Tabel products</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
+              - id (UUID / PK)<br>
+              - nama_produk (Varchar)<br>
+              - deskripsi (Text - detail bahan, cutting)<br>
+              - harga (Numeric - ritel produk)<br>
+              - kategori (Varchar - Outerwear, dll)<br>
+              - gambar_url (Varchar - tautan aset HD)
+            </div>
+          </div>
+
+          <!-- 3. Product Sizes Table -->
+          <div class="stat-card" style="padding: 1rem;">
+            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">3. Tabel product_sizes</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
+              - id (UUID / PK)<br>
+              - product_id (UUID, FK -> products.id)<br>
+              - ukuran (Varchar: S, M, L, XL)<br>
+              - stok (Integer - dikurangi atomik saat Paid)
+            </div>
+          </div>
+
+          <!-- 4. Orders Table -->
+          <div class="stat-card" style="padding: 1rem;">
+            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">4. Tabel orders</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
+              - id (UUID / PK - No. referensi pesanan)<br>
+              - user_id (UUID, FK -> users.id pembeli)<br>
+              - total_harga (Numeric - barang + ongkir)<br>
+              - status_pesanan (Pending, Paid, Shipped...)<br>
+              - alamat_pengiriman (Text)<br>
+              - resi_pengiriman (Varchar, input admin)<br>
+              - created_at (Timestamp)
+            </div>
+          </div>
+
+          <!-- 5. Order Items Table -->
+          <div class="stat-card" style="padding: 1rem; grid-column: span 2;">
+            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">5. Tabel order_items</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
+              - id (UUID / PK)<br>
+              - order_id (UUID, FK -> orders.id)<br>
+              - product_id (UUID, FK -> products.id)<br>
+              - jumlah (Integer - qty pcs)<br>
+              - harga_satuan (Numeric - harga dikunci saat transaksi mencegah distorsi)
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
