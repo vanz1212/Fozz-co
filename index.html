@@ -35,9 +35,13 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         HQ Portal (Admin CMS)
       </button>
-      <button class="role-btn" onclick="app.openSchemaModal()" style="border-color: rgba(255, 51, 75, 0.4);">
+      <button class="role-btn" onclick="app.openSchemaModal()" style="border-color: rgba(224, 83, 60, 0.4);">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
         Lihat Skema DB
+      </button>
+      <button class="role-btn" id="btn-theme-toggle" onclick="app.toggleTheme()" title="Ubah Mode Tampilan" style="border-color: rgba(224, 83, 60, 0.25);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <span id="theme-toggle-text">Tema: Ramah & Hangat</span>
       </button>
     </div>
   </div>
@@ -636,7 +640,7 @@
             Alur Relasional & Trigger Atomik
           </h4>
           <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-            Saat checkout, record induk dibuat di <code class="mono-text">orders</code> untuk merekam alamat dan tagihan akhir. Rincian belanja disimpan terpisah di <code class="mono-text">order_items</code> terikat kuat (<code class="mono-text">Foreign Key</code>) ke pesanan dan produk aslinya dengan <strong style="color: #fff;">harga terkunci</strong>. Setelah berstatus <span class="status-pill status-paid">Paid</span>, trigger atomik mengurangi stok pada <code class="mono-text">product_sizes</code> untuk mencegah <em>overselling</em> saat rilis eksklusif.
+            Saat checkout, record induk dibuat di <code class="mono-text">orders</code> untuk merekam alamat dan tagihan akhir. Rincian belanja disimpan terpisah di <code class="mono-text">order_items</code> terikat kuat (<code class="mono-text">Foreign Key</code>) ke pesanan dan produk aslinya dengan <strong style="color: var(--text-primary);">harga terkunci</strong>. Setelah berstatus <span class="status-pill status-paid">Paid</span>, trigger atomik mengurangi stok pada <code class="mono-text">product_sizes</code> untuk mencegah <em>overselling</em> saat rilis eksklusif.
           </p>
         </div>
 
@@ -644,7 +648,7 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
           <!-- 1. Users Table -->
           <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">1. Tabel users</h4>
+            <h4 style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem;">1. Tabel users</h4>
             <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
               - id (UUID / PK)<br>
               - nama_lengkap (Varchar)<br>
@@ -658,7 +662,7 @@
 
           <!-- 2. Products Table -->
           <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">2. Tabel products</h4>
+            <h4 style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem;">2. Tabel products</h4>
             <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
               - id (UUID / PK)<br>
               - nama_produk (Varchar)<br>
@@ -671,7 +675,7 @@
 
           <!-- 3. Product Sizes Table -->
           <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">3. Tabel product_sizes</h4>
+            <h4 style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem;">3. Tabel product_sizes</h4>
             <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
               - id (UUID / PK)<br>
               - product_id (UUID, FK -> products.id)<br>
@@ -682,7 +686,7 @@
 
           <!-- 4. Orders Table -->
           <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">4. Tabel orders</h4>
+            <h4 style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem;">4. Tabel orders</h4>
             <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
               - id (UUID / PK - No. referensi pesanan)<br>
               - user_id (UUID, FK -> users.id pembeli)<br>
@@ -696,7 +700,7 @@
 
           <!-- 5. Order Items Table -->
           <div class="stat-card" style="padding: 1rem; grid-column: span 2;">
-            <h4 style="color: #fff; font-size: 0.95rem; margin-bottom: 0.5rem;">5. Tabel order_items</h4>
+            <h4 style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem;">5. Tabel order_items</h4>
             <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.7;">
               - id (UUID / PK)<br>
               - order_id (UUID, FK -> orders.id)<br>

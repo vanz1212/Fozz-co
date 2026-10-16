@@ -17,11 +17,41 @@ class FozzApp {
   }
 
   init() {
+    this.initTheme();
     this.updateUserUI();
     this.renderCatalog();
     this.updateCartBadges();
     this.updateWishlistBadges();
     this.initAdminViews();
+  }
+
+  // Theme Management (Default: Ramah & Hangat / Friendly Warm Light)
+  initTheme() {
+    const savedTheme = localStorage.getItem('fozz_theme') || 'light';
+    const label = document.getElementById('theme-toggle-text');
+    if (savedTheme === 'dark') {
+      document.body.setAttribute('data-theme', 'dark');
+      if (label) label.textContent = 'Tema: Dark Vibe';
+    } else {
+      document.body.removeAttribute('data-theme');
+      if (label) label.textContent = 'Tema: Ramah & Hangat';
+    }
+  }
+
+  toggleTheme() {
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    const label = document.getElementById('theme-toggle-text');
+    if (isDark) {
+      document.body.removeAttribute('data-theme');
+      localStorage.setItem('fozz_theme', 'light');
+      if (label) label.textContent = 'Tema: Ramah & Hangat';
+      this.showToast('Beralih ke Tema Ramah & Hangat (Light Vibe)', 'success');
+    } else {
+      document.body.setAttribute('data-theme', 'dark');
+      localStorage.setItem('fozz_theme', 'dark');
+      if (label) label.textContent = 'Tema: Dark Vibe';
+      this.showToast('Beralih ke Dark Mode', 'info');
+    }
   }
 
   // Helper Formatter Rupiah
@@ -377,7 +407,7 @@ class FozzApp {
               </button>
             </div>
 
-            <div class="cart-item-meta">Size: <strong style="color: #fff;">${item.ukuran}</strong> &bull; ${this.formatRupiah(prod.harga)}</div>
+            <div class="cart-item-meta">Size: <strong style="color: var(--text-primary);">${item.ukuran}</strong> &bull; ${this.formatRupiah(prod.harga)}</div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
               <div class="cart-item-qty">
@@ -385,7 +415,7 @@ class FozzApp {
                 <span style="font-weight: 700; font-size: 0.85rem; min-width: 18px; text-align: center;">${item.qty}</span>
                 <button class="qty-btn" onclick="app.changeCartQty(${index}, 1)">+</button>
               </div>
-              <span class="mono-text" style="font-weight: 700; font-size: 0.85rem; color: #fff;">${this.formatRupiah(lineTotal)}</span>
+              <span class="mono-text" style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">${this.formatRupiah(lineTotal)}</span>
             </div>
           </div>
         </div>
@@ -558,7 +588,7 @@ class FozzApp {
           return `
             <div style="display: flex; justify-content: space-between; font-size: 0.82rem; padding: 0.25rem 0; color: var(--text-secondary);">
               <span>${prod ? prod.nama_produk : 'Artikel'} (${it.ukuran}) &times; ${it.jumlah}</span>
-              <span class="mono-text" style="color: #fff;">${this.formatRupiah(it.harga_satuan * it.jumlah)}</span>
+              <span class="mono-text" style="color: var(--text-primary);">${this.formatRupiah(it.harga_satuan * it.jumlah)}</span>
             </div>
           `;
         }).join('');
@@ -569,13 +599,13 @@ class FozzApp {
               <div>
                 <span class="mono-text" style="font-size: 0.75rem; color: var(--accent-red); font-weight: 700;">#${ord.id}</span>
                 <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">&bull; ${dateStr}</span>
-                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">Kurir: <strong style="color: #fff;">${ord.courier || 'Ekspedisi Reguler'}</strong></div>
+                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">Kurir: <strong style="color: var(--text-primary);">${ord.courier || 'Ekspedisi Reguler'}</strong></div>
               </div>
               <span class="status-pill ${statusClass}">${ord.status_pesanan}</span>
             </div>
 
             <!-- Items details -->
-            <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem;">
+            <div style="background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem;">
               ${itemsSummary}
               <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; border-top: 1px dashed var(--border-color); margin-top: 0.5rem; padding-top: 0.5rem;">
                 <span>Total Pembayaran (Termasuk Ongkir):</span>
@@ -584,7 +614,7 @@ class FozzApp {
             </div>
 
             <!-- Tracking & Airway Bill -->
-            <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
+            <div style="background: var(--bg-subtle); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem;">
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
                 <span style="color: var(--text-muted);">Nomor Resi (Airway Bill):</span>
                 <span class="mono-text" style="font-weight: 700; color: ${ord.resi_pengiriman ? 'var(--accent-silver)' : 'var(--accent-gold)'};">
@@ -710,7 +740,7 @@ class FozzApp {
 
         <div class="stat-card">
           <div class="stat-card-title">Total Pendapatan Bersih (Net)</div>
-          <div class="stat-card-val" style="color: #fff;">${this.formatRupiah(netRevenue)}</div>
+          <div class="stat-card-val">${this.formatRupiah(netRevenue)}</div>
           <div class="stat-card-sub" style="color: var(--accent-green);">Margin Bersih Sehat</div>
         </div>
 
@@ -770,10 +800,10 @@ class FozzApp {
         bestSellersList.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted);">Belum ada data penjualan tercatat.</p>`;
       } else {
         bestSellersList.innerHTML = sortedProds.slice(0, 4).map(it => `
-          <div style="display: flex; align-items: center; gap: 0.75rem; background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--bg-muted); padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
             <img src="${it.product.gambar_url}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 4px;">
             <div style="flex-grow: 1;">
-              <div style="font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${it.product.nama_produk}</div>
+              <div style="font-size: 0.82rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; color: var(--text-primary);">${it.product.nama_produk}</div>
               <div style="font-size: 0.72rem; color: var(--text-muted);">${this.formatRupiah(it.product.harga)}</div>
             </div>
             <span class="role-bar-badge" style="font-size: 0.72rem;">${it.count} Sold</span>
@@ -812,7 +842,7 @@ class FozzApp {
             <div style="display: flex; align-items: center; gap: 0.75rem;">
               <img src="${prod.gambar_url}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px;">
               <div>
-                <strong style="color: #fff; font-size: 0.9rem;">${prod.nama_produk}</strong>
+                <strong style="color: var(--text-primary); font-size: 0.9rem;">${prod.nama_produk}</strong>
                 <div class="mono-text" style="font-size: 0.72rem; color: var(--text-muted);">${prod.id}</div>
               </div>
             </div>
@@ -898,7 +928,7 @@ class FozzApp {
             <div style="font-size: 0.72rem; color: var(--text-muted);">${new Date(ord.created_at).toLocaleDateString('id-ID')}</div>
           </td>
           <td>
-            <strong style="color: #fff;">${user ? user.nama_lengkap : 'Pelanggan'}</strong>
+            <strong style="color: var(--text-primary);">${user ? user.nama_lengkap : 'Pelanggan'}</strong>
             <div style="font-size: 0.72rem; color: var(--text-muted);">${user ? user.email : ''}</div>
             <div style="font-size: 0.7rem; color: var(--text-secondary); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
               ${ord.alamat_pengiriman}
@@ -969,16 +999,16 @@ class FozzApp {
     tbody.innerHTML = users.map(u => `
       <tr>
         <td class="mono-text" style="color: var(--accent-red); font-size: 0.75rem;">${u.id}</td>
-        <td><strong style="color: #fff;">${u.nama_lengkap}</strong></td>
+        <td><strong style="color: var(--text-primary);">${u.nama_lengkap}</strong></td>
         <td>${u.email}</td>
         <td>
-          <span class="role-bar-badge" style="${u.role === 'admin' ? 'border-color: var(--accent-red);' : 'border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(59,130,246,0.1);'}">
+          <span class="role-bar-badge" style="${u.role === 'admin' ? 'border-color: var(--accent-red);' : 'border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(37,99,235,0.1);'}">
             ${u.role.toUpperCase()}
           </span>
         </td>
         <td>${u.no_telepon || '-'}</td>
         <td>
-          <code class="mono-text" style="font-size: 0.72rem; color: var(--text-muted); background: rgba(0,0,0,0.4); padding: 0.2rem 0.4rem; border-radius: 4px;">
+          <code class="mono-text" style="font-size: 0.72rem; color: var(--text-muted); background: var(--bg-muted); padding: 0.2rem 0.4rem; border-radius: 4px;">
             ${u.password_hash.slice(0, 15)}...[Argon2/Bcrypt Secured]
           </code>
         </td>
