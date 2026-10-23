@@ -35,13 +35,13 @@
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         HQ Portal (Admin CMS)
       </button>
-      <button class="role-btn" onclick="app.openSchemaModal()" style="border-color: rgba(224, 83, 60, 0.4);">
+      <button class="role-btn" onclick="app.openSchemaModal()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
         Lihat Skema DB
       </button>
-      <button class="role-btn" id="btn-theme-toggle" onclick="app.toggleTheme()" title="Ubah Mode Tampilan" style="border-color: rgba(224, 83, 60, 0.25);">
+      <button class="role-btn" id="btn-theme-toggle" onclick="app.toggleTheme()" title="Ubah Mode Tampilan">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-        <span id="theme-toggle-text">Tema: Ramah & Hangat</span>
+        <span id="theme-toggle-text">Tema: Brutal Light</span>
       </button>
     </div>
   </div>
@@ -60,7 +60,7 @@
         <li class="nav-link" onclick="app.filterByCategory('Outerwear')">Outerwear</li>
         <li class="nav-link" onclick="app.filterByCategory('Hoodie')">Hoodies</li>
         <li class="nav-link" onclick="app.filterByCategory('Pants')">Pants</li>
-        <li class="nav-link" onclick="app.openOrderHistory()">Riwayat Pesanan</li>
+        <li class="nav-link" onclick="app.openOrderHistory()">Lacak Paket</li>
       </ul>
 
       <div class="nav-actions">
@@ -371,7 +371,7 @@
           <div style="display: flex; gap: 0.75rem; margin-top: auto; padding-top: 1rem;">
             <button class="btn-primary" id="btn-modal-add-to-cart" style="flex-grow: 1; justify-content: center;" onclick="app.addModalProductToCart()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-              Tambah ke Keranjang
+              Amankan Slot
             </button>
             <button class="btn-secondary" id="btn-modal-wishlist" onclick="app.toggleWishlistFromModal()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
@@ -413,7 +413,7 @@
           <span id="cart-total" class="mono-text" style="color: var(--accent-red);">Rp 0</span>
         </div>
         <button class="btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem; padding: 0.85rem;" onclick="app.openCheckoutModal()">
-          Lanjut ke Pembayaran (Checkout)
+          Sikat Sekarang (Checkout)
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
         </button>
       </div>
@@ -477,7 +477,7 @@
 
         <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 0.95rem;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          Selesaikan Pembayaran Sekarang
+          Sikat Sekarang — Amankan Slot
         </button>
       </form>
     </div>
@@ -490,10 +490,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
 
-      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-        <span class="brand-tagline">PELACAKAN PESANAN REAL-TIME</span>
-        <h2 style="font-size: 1.5rem; margin-top: 0.25rem;">Riwayat & Status Pesanan Anda</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Memantau alur logistik dari status Paid hingga diterbitkan Nomor Resi (Airway Bill) oleh Admin.</p>
+      <div style="border-bottom: 2.5px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="brand-tagline">PELACAKAN PAKET REAL-TIME</span>
+        <h2 style="font-size: 1.5rem; margin-top: 0.25rem;">Lacak Paket & Status Drop</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Pantau pergerakan logistik drop Anda dari status Paid hingga diterbitkan Nomor Resi (Airway Bill) resmi.</p>
       </div>
 
       <div id="order-history-container" style="display: flex; flex-direction: column; gap: 1.25rem;">

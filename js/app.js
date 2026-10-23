@@ -31,10 +31,10 @@ class FozzApp {
     const label = document.getElementById('theme-toggle-text');
     if (savedTheme === 'dark') {
       document.body.setAttribute('data-theme', 'dark');
-      if (label) label.textContent = 'Tema: Dark Vibe';
+      if (label) label.textContent = 'Tema: Brutal Dark';
     } else {
       document.body.removeAttribute('data-theme');
-      if (label) label.textContent = 'Tema: Ramah & Hangat';
+      if (label) label.textContent = 'Tema: Brutal Light';
     }
   }
 
@@ -44,13 +44,13 @@ class FozzApp {
     if (isDark) {
       document.body.removeAttribute('data-theme');
       localStorage.setItem('fozz_theme', 'light');
-      if (label) label.textContent = 'Tema: Ramah & Hangat';
-      this.showToast('Beralih ke Tema Ramah & Hangat (Light Vibe)', 'success');
+      if (label) label.textContent = 'Tema: Brutal Light';
+      this.showToast('Beralih ke Tema Brutal Light (High Contrast)', 'success');
     } else {
       document.body.setAttribute('data-theme', 'dark');
       localStorage.setItem('fozz_theme', 'dark');
-      if (label) label.textContent = 'Tema: Dark Vibe';
-      this.showToast('Beralih ke Dark Mode', 'info');
+      if (label) label.textContent = 'Tema: Brutal Dark';
+      this.showToast('Beralih ke Tema Brutal Dark (High Contrast)', 'info');
     }
   }
 
@@ -81,11 +81,10 @@ class FozzApp {
     container.appendChild(toast);
 
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(100%)';
-      toast.style.transition = 'all 0.3s ease';
-      setTimeout(() => toast.remove(), 300);
-    }, 3200);
+      toast.style.transform = 'translateX(120%)';
+      toast.style.transition = 'transform 0.08s cubic-bezier(0, 0, 0.2, 1)';
+      setTimeout(() => toast.remove(), 80);
+    }, 2800);
   }
 
   // Switch between Customer Storefront and HQ Portal Admin (CMS)
@@ -344,7 +343,7 @@ class FozzApp {
     this.updateCartBadges();
     this.closeModal('product-detail-modal');
     this.toggleCartDrawer(true);
-    this.showToast(`Berhasil menambahkan ${this.activeModalProduct.nama_produk} (Size ${this.selectedProductSize}) ke keranjang!`, 'success');
+    this.showToast(`Slot ${this.activeModalProduct.nama_produk} (${this.selectedProductSize}) berhasil diamankan!`, 'success');
   }
 
   toggleWishlistFromModal() {
@@ -548,7 +547,7 @@ class FozzApp {
     this.closeModal('checkout-modal');
     this.updateCartBadges();
     this.renderCatalog(); // Refresh catalog to show updated stock
-    this.showToast(`Transaksi ${newOrder.id} Berhasil Terbayar! Stok dikurangi secara atomik.`, 'success');
+    this.showToast(`Drop #${newOrder.id} Berhasil Disikat! Slot terverifikasi.`, 'success');
 
     // Open order history to view the freshly created order
     setTimeout(() => {
@@ -567,8 +566,8 @@ class FozzApp {
       container.innerHTML = `
         <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-          <h3>Belum ada riwayat transaksi</h3>
-          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Pesanan yang telah Anda selesaikan akan muncul di sini.</p>
+          <h3>Belum ada paket aktif untuk dilacak</h3>
+          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Sikat artikel favorit Anda di katalog drop, lalu pantau resinya di sini.</p>
         </div>
       `;
     } else {
