@@ -624,7 +624,11 @@ class FozzApp {
             </div>
 
             <!-- Action buttons -->
-            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+              <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                Ajukan Retur / Tukar
+              </button>
               ${ord.status_pesanan === 'Shipped' ? `
                 <button class="btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;" onclick="app.confirmDelivery('${ord.id}')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -688,6 +692,8 @@ class FozzApp {
     this.renderAdminInventory();
     this.renderAdminOrders();
     this.renderAdminCustomers();
+    this.renderAdminReturns();
+    this.updateAdminReturnsBadge();
   }
 
   refreshAdminData() {
@@ -695,10 +701,12 @@ class FozzApp {
     this.renderAdminInventory();
     this.renderAdminOrders();
     this.renderAdminCustomers();
+    this.renderAdminReturns();
+    this.updateAdminReturnsBadge();
   }
 
   switchAdminTab(tabName) {
-    const tabs = ['dashboard', 'inventory', 'orders', 'customers'];
+    const tabs = ['dashboard', 'inventory', 'orders', 'customers', 'returns'];
     tabs.forEach(t => {
       const view = document.getElementById(`admin-subview-${t}`);
       const btn = document.getElementById(`tab-btn-${t}`);
@@ -713,6 +721,7 @@ class FozzApp {
     if (tabName === 'inventory') this.renderAdminInventory();
     if (tabName === 'orders') this.renderAdminOrders();
     if (tabName === 'customers') this.renderAdminCustomers();
+    if (tabName === 'returns') this.renderAdminReturns();
   }
 
   renderAdminDashboard() {
@@ -1033,12 +1042,416 @@ class FozzApp {
     this.openModal('schema-modal');
   }
 
-  navigateTo(section) {
+  navigateTo(section, params = {}) {
+    const catalogView = document.getElementById('customer-catalog-view');
+    const returnsView = document.getElementById('customer-returns-view');
+    const navCatalog = document.getElementById('nav-link-catalog');
+    const navReturns = document.getElementById('nav-link-returns');
+
     if (section === 'catalog') {
+      if (catalogView) catalogView.style.display = 'block';
+      if (returnsView) returnsView.style.display = 'none';
+      if (navCatalog) navCatalog.classList.add('active');
+      if (navReturns) navReturns.classList.remove('active');
       this.selectedCategory = 'ALL';
       this.searchQuery = '';
       this.renderCatalog();
-      window.scrollTo({ top: 400, behavior: 'smooth' });
+      window.scrollTo({ top: params.scrollToProducts ? 400 : 0, behavior: 'smooth' });
+    } else if (section === 'returns') {
+      if (catalogView) catalogView.style.display = 'none';
+      if (returnsView) returnsView.style.display = 'block';
+      if (navCatalog) navCatalog.classList.remove('active');
+      if (navReturns) navReturns.classList.add('active');
+      this.renderReturnsPage(params.orderId);
+      if (params.scrollToRMA) {
+        setTimeout(() => {
+          const rmaCard = document.getElementById('rma-portal-card');
+          if (rmaCard) rmaCard.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }
+
+  // --- RETURNS & EXCHANGE SYSTEM (RMA PORTAL) ---
+  renderReturnsPage(preselectedOrderId = null) {
+    const user = DB.getCurrentUser();
+    const orderSelect = document.getElementById('return-order-select');
+    if (!orderSelect) return;
+
+    const orders = user ? DB.getOrders().filter(o => o.user_id === user.id) : DB.getOrders();
+
+    orderSelect.innerHTML = `
+      <option value="">-- Pilih Pesanan yang Ingin Diretur/Ditukar --</option>
+      ${orders.map(o => {
+        const dateStr = new Date(o.created_at).toLocaleDateString('id-ID');
+        return `<option value="${o.id}" ${o.id === preselectedOrderId ? 'selected' : ''}>#${o.id} &bull; Status: ${o.status_pesanan} &bull; ${this.formatRupiah(o.total_harga)} (${dateStr})</option>`;
+      }).join('')}
+    `;
+
+    if (preselectedOrderId) {
+      orderSelect.value = preselectedOrderId;
+      this.handleReturnOrderSelect(preselectedOrderId);
+    } else if (orders.length > 0) {
+      orderSelect.value = orders[0].id;
+      this.handleReturnOrderSelect(orders[0].id);
+    }
+
+    this.renderMyReturnsList();
+  }
+
+  handleReturnOrderSelect(orderId) {
+    const prodSelect = document.getElementById('return-product-select');
+    if (!prodSelect) return;
+
+    if (!orderId) {
+      prodSelect.innerHTML = `<option value="">-- Pilih pesanan terlebih dahulu --</option>`;
+      return;
+    }
+
+    const items = DB.getOrderItems().filter(i => i.order_id === orderId);
+    if (items.length === 0) {
+      prodSelect.innerHTML = `<option value="">Tidak ada artikel dalam pesanan ini</option>`;
+      return;
+    }
+
+    prodSelect.innerHTML = items.map(item => {
+      const prod = DB.getProductById(item.product_id);
+      const name = prod ? prod.nama_produk : 'Artikel Streetwear';
+      return `<option value="${item.product_id}|${item.ukuran}|${name}">${name} (Size ${item.ukuran}) &times; ${item.jumlah} pcs</option>`;
+    }).join('');
+
+    this.handleReturnProductSelect(prodSelect.value);
+  }
+
+  handleReturnProductSelect(val) {
+    if (!val) return;
+    const [productId, currentSize] = val.split('|');
+    const targetSizeSelect = document.getElementById('target-size-select');
+    const stockStatus = document.getElementById('target-size-stock-status');
+    if (!targetSizeSelect) return;
+
+    const allSizes = DB.getSizesForProduct(productId);
+    targetSizeSelect.innerHTML = `
+      <option value="">-- Pilih Ukuran Pengganti --</option>
+      ${allSizes.map(s => {
+        const isCurrent = s.ukuran === currentSize;
+        const isAvailable = s.stok > 0;
+        return `<option value="${s.ukuran}" ${isCurrent ? 'disabled' : ''} ${!isAvailable ? 'disabled' : ''}>
+          Size ${s.ukuran} ${isCurrent ? '(Ukuran Saat Ini)' : (isAvailable ? `(Tersedia: ${s.stok} pcs)` : '(Stok Habis)')}
+        </option>`;
+      }).join('')}
+    `;
+
+    if (stockStatus) stockStatus.textContent = '';
+  }
+
+  handleReturnTypeChange(type) {
+    const targetContainer = document.getElementById('target-size-container');
+    const cardEx = document.getElementById('type-card-exchange');
+    const cardDef = document.getElementById('type-card-defect');
+    const cardWr = document.getElementById('type-card-wrong');
+
+    if (cardEx) cardEx.classList.toggle('active', type === 'exchange_size');
+    if (cardDef) cardDef.classList.toggle('active', type === 'defect_refund');
+    if (cardWr) cardWr.classList.toggle('active', type === 'wrong_item');
+
+    if (targetContainer) {
+      targetContainer.style.display = type === 'exchange_size' ? 'block' : 'none';
+      const targetSelect = document.getElementById('target-size-select');
+      if (targetSelect) {
+        if (type === 'exchange_size') targetSelect.setAttribute('required', 'required');
+        else targetSelect.removeAttribute('required');
+      }
+    }
+  }
+
+  handleTargetSizeChange(size) {
+    const stockStatus = document.getElementById('target-size-stock-status');
+    if (!stockStatus) return;
+    if (size) {
+      stockStatus.textContent = `Pilihan: Size ${size} (Siap dialokasikan)`;
+    } else {
+      stockStatus.textContent = '';
+    }
+  }
+
+  submitReturnRequest(event) {
+    event.preventDefault();
+    const user = DB.getCurrentUser();
+    if (!user) {
+      this.showToast('Silakan login terlebih dahulu untuk mengajukan retur.', 'info');
+      return;
+    }
+
+    const orderId = document.getElementById('return-order-select').value;
+    const prodVal = document.getElementById('return-product-select').value;
+    const returnType = document.querySelector('input[name="return_type"]:checked')?.value || 'exchange_size';
+    const targetSize = document.getElementById('target-size-select')?.value || null;
+    const reason = document.getElementById('return-reason').value.trim();
+    const photoUrl = document.getElementById('return-photo-url').value.trim();
+    const checkHangtag = document.getElementById('check-hangtag').checked;
+    const checkUnboxing = document.getElementById('check-unboxing').checked;
+
+    if (!orderId || !prodVal) {
+      this.showToast('Pilih nomor pesanan dan artikel yang ingin diajukan retur!', 'info');
+      return;
+    }
+
+    if (returnType === 'exchange_size' && !targetSize) {
+      this.showToast('Pilih ukuran baru pengganti yang diinginkan!', 'info');
+      return;
+    }
+
+    if (!checkHangtag || !checkUnboxing) {
+      this.showToast('Anda wajib mengonfirmasi seluruh syarat kondisi produk & video unboxing.', 'info');
+      return;
+    }
+
+    const [productId, currentSize, productName] = prodVal.split('|');
+
+    const newTicket = DB.createReturnRequest({
+      order_id: orderId,
+      user_id: user.id,
+      product_id: productId,
+      product_name: productName,
+      current_size: currentSize,
+      request_type: returnType,
+      target_size: targetSize,
+      reason: reason,
+      condition_confirmed: true,
+      video_unboxing_confirmed: true,
+      photo_url: photoUrl || undefined
+    });
+
+    this.showToast(`Tiket RMA #${newTicket.id} berhasil diterbitkan! Tim QA FOZZ akan meninjau dalam 1x24 jam.`, 'success');
+    document.getElementById('return-reason').value = '';
+    document.getElementById('return-photo-url').value = '';
+    document.getElementById('check-hangtag').checked = false;
+    document.getElementById('check-unboxing').checked = false;
+
+    this.renderMyReturnsList();
+    this.updateAdminReturnsBadge();
+  }
+
+  renderMyReturnsList() {
+    const container = document.getElementById('my-returns-list');
+    const badge = document.getElementById('my-returns-count-badge');
+    if (!container) return;
+
+    const user = DB.getCurrentUser();
+    const returns = user ? DB.getReturnsByUserId(user.id) : DB.getReturns();
+
+    if (badge) badge.textContent = `${returns.length} Tiket`;
+
+    if (returns.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.85rem; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); background: var(--bg-card);">
+          <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">📦</div>
+          Belum ada riwayat pengajuan retur aktif.<br>Jika produk Anda mengalami kendala ukuran atau cacat jahitan, silakan isi formulir di samping.
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = returns.map(item => {
+      const dateStr = new Date(item.created_at).toLocaleDateString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+      const typeLabel = item.request_type === 'exchange_size' ? 'Tukar Ukuran' : (item.request_type === 'defect_refund' ? 'Cacat Produksi' : 'Salah Kirim');
+
+      let statusBadge = '';
+      if (item.status === 'submitted') statusBadge = '<span class="status-pill status-pending">Menunggu Review QA</span>';
+      else if (item.status === 'approved') statusBadge = '<span class="status-pill status-paid">Disetujui QA</span>';
+      else if (item.status === 'rejected') statusBadge = '<span class="status-pill status-canceled">Ditolak</span>';
+      else if (item.status === 'completed') statusBadge = '<span class="status-pill status-delivered">Selesai (Completed)</span>';
+      else statusBadge = `<span class="status-pill">${item.status}</span>`;
+
+      const isStep1Done = true;
+      const isStep2Done = item.status === 'approved' || item.status === 'completed';
+      const isStep3Done = item.return_tracking_no !== null || item.status === 'completed';
+      const isStep4Done = item.status === 'completed';
+
+      return `
+        <div class="rma-ticket-card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+            <div>
+              <span class="mono-text" style="font-weight: 800; font-size: 0.85rem; color: var(--accent-red);">${item.id}</span>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem;">Ref: Order #${item.order_id} &bull; ${dateStr}</div>
+            </div>
+            ${statusBadge}
+          </div>
+
+          <div style="background: var(--bg-muted); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 0.75rem;">
+            <div style="font-weight: 800; font-size: 0.88rem; color: var(--text-primary); margin-bottom: 0.2rem;">
+              ${item.product_name}
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); display: flex; gap: 0.75rem;">
+              <span>Tipe: <strong>${typeLabel}</strong></span>
+              <span>Ukuran: <strong style="text-decoration: line-through; opacity: 0.7;">Size ${item.current_size}</strong> &rarr; <strong style="color: var(--accent-green);">Size ${item.target_size || 'Refund/Ganti'}</strong></span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; font-style: italic;">
+              "${item.reason}"
+            </div>
+          </div>
+
+          <!-- RMA Timeline -->
+          <div class="rma-status-timeline">
+            <div class="rma-timeline-step ${isStep1Done ? 'completed' : ''}">
+              <div class="rma-timeline-dot">1</div>
+              <span class="rma-timeline-label">Diajukan</span>
+            </div>
+            <div class="rma-timeline-step ${isStep2Done ? 'completed' : (item.status === 'submitted' ? 'active' : '')}">
+              <div class="rma-timeline-dot">2</div>
+              <span class="rma-timeline-label">Review QA</span>
+            </div>
+            <div class="rma-timeline-step ${isStep3Done ? 'completed' : (item.status === 'approved' ? 'active' : '')}">
+              <div class="rma-timeline-dot">3</div>
+              <span class="rma-timeline-label">Kirim Unit</span>
+            </div>
+            <div class="rma-timeline-step ${isStep4Done ? 'completed' : ''}">
+              <div class="rma-timeline-dot">4</div>
+              <span class="rma-timeline-label">Selesai</span>
+            </div>
+          </div>
+
+          <!-- QA Feedback / Tracking Notes -->
+          <div style="font-size: 0.75rem; background: var(--bg-subtle); border-left: 3px solid var(--accent-red); padding: 0.5rem 0.75rem; margin-top: 0.75rem;">
+            <strong>Catatan QA HQ:</strong> ${item.admin_note || 'Sedang dalam antrean review spesifikasi.'}
+            ${item.replacement_tracking_no ? `
+              <div style="margin-top: 0.25rem;">
+                Resi Unit Pengganti: <strong class="mono-text" style="color: var(--accent-blue);">${item.replacement_tracking_no}</strong>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  openReturnRequestForOrder(orderId) {
+    this.closeModal('order-history-modal');
+    this.navigateTo('returns', { orderId, scrollToRMA: true });
+  }
+
+  refreshReturnsData() {
+    this.renderReturnsPage();
+    this.showToast('Data tiket retur dan stok ukuran telah disinkronkan!', 'info');
+  }
+
+  toggleFaq(element) {
+    element.classList.toggle('open');
+  }
+
+  copyHubAddress() {
+    const text = "FOZZ.CO DISTRIBUTION CENTER & RMA HUB\nGedung Urban Streetwear Pavilion Lt. 3\nJl. Senopati No. 42, RT 06 / RW 02, Kebayoran Baru, Jakarta Selatan 12190\nUP: Tim Quality Assurance RMA (+62 811-3699-2273)";
+    navigator.clipboard.writeText(text).then(() => {
+      this.showToast('Alamat Hub Logistik FOZZ berhasil disalin ke clipboard!', 'success');
+    }).catch(() => {
+      this.showToast('Alamat: Jl. Senopati No. 42, Kebayoran Baru, Jakarta Selatan 12190', 'info');
+    });
+  }
+
+  // --- ADMIN: RMA TICKETS MANAGEMENT ---
+  updateAdminReturnsBadge() {
+    const badge = document.getElementById('admin-returns-badge');
+    if (!badge) return;
+    const returns = DB.getReturns();
+    const pendingCount = returns.filter(r => r.status === 'submitted' || r.status === 'approved').length;
+    badge.textContent = pendingCount;
+  }
+
+  renderAdminReturns() {
+    const tbody = document.getElementById('admin-returns-table-body');
+    if (!tbody) return;
+
+    this.updateAdminReturnsBadge();
+    const returns = DB.getReturns();
+
+    if (returns.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Tidak ada tiket permohonan retur aktif saat ini.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = returns.map(item => {
+      const user = DB.getUserById(item.user_id);
+      const dateStr = new Date(item.created_at).toLocaleDateString('id-ID');
+
+      return `
+        <tr>
+          <td>
+            <span class="mono-text" style="color: var(--accent-red); font-weight: 700;">${item.id}</span>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">${dateStr}</div>
+          </td>
+          <td>
+            <strong>${user ? user.nama_lengkap : 'Pelanggan'}</strong>
+            <div style="font-size: 0.72rem; color: var(--text-muted);">${user ? user.email : ''}</div>
+            <div style="font-size: 0.72rem; color: var(--accent-blue); font-family: var(--font-mono);">Ref: #${item.order_id}</div>
+          </td>
+          <td>
+            <strong style="color: var(--text-primary); font-size: 0.82rem;">${item.product_name}</strong>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">
+              Size Saat Ini: <strong style="text-decoration: line-through;">${item.current_size}</strong>
+              ${item.target_size ? `&rarr; Size Target: <strong style="color: var(--accent-green);">${item.target_size}</strong>` : ''}
+            </div>
+          </td>
+          <td style="max-width: 200px;">
+            <span class="role-bar-badge" style="font-size: 0.68rem; margin-bottom: 0.35rem;">
+              ${item.request_type === 'exchange_size' ? 'Tukar Ukuran' : (item.request_type === 'defect_refund' ? 'Cacat Produksi' : 'Salah Kirim')}
+            </span>
+            <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+              "${item.reason}"
+            </div>
+          </td>
+          <td>
+            <select style="font-size: 0.78rem; padding: 0.35rem 0.6rem;" onchange="app.adminChangeReturnStatus('${item.id}', this.value)">
+              <option value="submitted" ${item.status === 'submitted' ? 'selected' : ''}>Submitted (Review QA)</option>
+              <option value="approved" ${item.status === 'approved' ? 'selected' : ''}>Approved (Disetujui)</option>
+              <option value="rejected" ${item.status === 'rejected' ? 'selected' : ''}>Rejected (Ditolak)</option>
+              <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed (Selesai)</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" 
+                   id="admin-return-note-${item.id}" 
+                   value="${item.admin_note || ''}" 
+                   placeholder="Catatan QA untuk pembeli"
+                   style="font-size: 0.75rem; padding: 0.35rem 0.5rem; width: 170px;"
+                   onchange="app.adminSaveReturnNote('${item.id}', this.value)">
+          </td>
+          <td>
+            <div style="display: flex; gap: 0.35rem;">
+              <input type="text" 
+                     id="admin-return-tracking-${item.id}" 
+                     value="${item.replacement_tracking_no || ''}" 
+                     placeholder="Resi Unit Baru"
+                     class="mono-text"
+                     style="font-size: 0.75rem; padding: 0.35rem 0.5rem; width: 130px;">
+              <button class="role-btn" onclick="app.adminSaveReturnTracking('${item.id}')">Kirim Resi</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  adminChangeReturnStatus(returnId, newStatus) {
+    DB.updateReturnStatus(returnId, newStatus);
+    this.renderAdminReturns();
+    this.showToast(`Status tiket RMA #${returnId} diubah menjadi "${newStatus}"`, 'success');
+  }
+
+  adminSaveReturnNote(returnId, note) {
+    DB.updateReturnStatus(returnId, null, note);
+    this.showToast(`Catatan QA untuk RMA #${returnId} berhasil disimpan!`, 'info');
+  }
+
+  adminSaveReturnTracking(returnId) {
+    const input = document.getElementById(`admin-return-tracking-${returnId}`);
+    if (input) {
+      const tracking = input.value.trim();
+      DB.updateReturnStatus(returnId, 'completed', 'Unit baru telah dikirimkan ke alamat Anda.', tracking);
+      this.renderAdminReturns();
+      this.showToast(`Resi unit baru ${tracking} berhasil dialokasikan & RMA diselesaikan!`, 'success');
     }
   }
 }

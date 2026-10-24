@@ -11,7 +11,8 @@ const STORAGE_KEYS = {
   ORDER_ITEMS: 'fozz_order_items',
   CURRENT_USER: 'fozz_current_user',
   CART: 'fozz_cart',
-  WISHLIST: 'fozz_wishlist'
+  WISHLIST: 'fozz_wishlist',
+  RETURNS: 'fozz_returns'
 };
 
 // Initial Seed Users (1 Admin, 2 Customers)
@@ -192,6 +193,29 @@ const SEED_ORDER_ITEMS = [
   }
 ];
 
+// Initial Seed Returns & Exchange Requests (RMA)
+const SEED_RETURNS = [
+  {
+    id: "RMA-FOZZ-882109",
+    order_id: "ord-882109",
+    user_id: "usr-cust-001",
+    product_id: "prod-001",
+    product_name: "Dark Washed Denim Jacket",
+    current_size: "L",
+    request_type: "exchange_size", // 'exchange_size' | 'defect_refund' | 'wrong_item'
+    target_size: "M",
+    reason: "Fitting Size L agak terlalu longgar di bahu. Ingin ditukar ke Size M.",
+    condition_confirmed: true,
+    video_unboxing_confirmed: true,
+    photo_url: "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&w=400&q=80",
+    status: "approved", // 'submitted' | 'approved' | 'rejected' | 'completed'
+    admin_note: "Disetujui QA. Unit Size M telah disisihkan di stok. Kirim ke FOZZ Return Hub.",
+    return_tracking_no: "RET-JNT-4401928",
+    replacement_tracking_no: "JP-9944112200",
+    created_at: "2026-10-18T10:15:00Z"
+  }
+];
+
 // Database Management Class (Emulates PostgreSQL Relational DB with LocalStorage)
 class FozzDatabase {
   constructor() {
@@ -219,6 +243,9 @@ class FozzDatabase {
     }
     if (!localStorage.getItem(STORAGE_KEYS.WISHLIST)) {
       localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(["prod-001"]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.RETURNS)) {
+      localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(SEED_RETURNS));
     }
     if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
       // Default logged in as Customer (Ivan Pratama) for smooth exploration
@@ -454,6 +481,60 @@ class FozzDatabase {
 
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
     return order;
+  }
+
+  // --- Returns & RMA System ---
+  getReturns() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEYS.RETURNS) || '[]');
+  }
+
+  getReturnById(id) {
+    return this.getReturns().find(r => r.id === id);
+  }
+
+  getReturnsByUserId(userId) {
+    return this.getReturns().filter(r => r.user_id === userId);
+  }
+
+  createReturnRequest(data) {
+    const returns = this.getReturns();
+    const newId = `RMA-FOZZ-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newReturn = {
+      id: newId,
+      order_id: data.order_id,
+      user_id: data.user_id,
+      product_id: data.product_id,
+      product_name: data.product_name,
+      current_size: data.current_size,
+      request_type: data.request_type, // 'exchange_size' | 'defect_refund' | 'wrong_item'
+      target_size: data.target_size || null,
+      reason: data.reason,
+      condition_confirmed: Boolean(data.condition_confirmed),
+      video_unboxing_confirmed: Boolean(data.video_unboxing_confirmed),
+      photo_url: data.photo_url || "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=400&q=80",
+      status: "submitted", // 'submitted' | 'approved' | 'rejected' | 'completed'
+      admin_note: "Tiket telah dibuat. Sedang dalam antrean review oleh Tim Quality Assurance.",
+      return_tracking_no: null,
+      replacement_tracking_no: null,
+      created_at: new Date().toISOString()
+    };
+    returns.unshift(newReturn);
+    localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returns));
+    return newReturn;
+  }
+
+  updateReturnStatus(returnId, newStatus, adminNote = null, replacementTracking = null) {
+    const returns = this.getReturns();
+    const item = returns.find(r => r.id === returnId);
+    if (!item) return null;
+
+    item.status = newStatus;
+    if (adminNote) item.admin_note = adminNote;
+    if (replacementTracking) item.replacement_tracking_no = replacementTracking;
+    item.updated_at = new Date().toISOString();
+
+    localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returns));
+    return item;
   }
 
   // Reset database back to default seed
