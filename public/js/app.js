@@ -443,7 +443,7 @@ class FozzApp {
     this.updateCartBadges();
     this.closeModal('product-detail-modal');
     this.toggleCartDrawer(true);
-    this.showToast(`Slot ${this.activeModalProduct.nama_produk} (Size ${this.selectedProductSize}) berhasil diamankan!`, 'success');
+    this.showToast(`${this.activeModalProduct.nama_produk} (Size ${this.selectedProductSize}) ditambahkan ke bag. Stok terjamin real-time!`, 'success');
   }
 
   toggleWishlistFromModal() {
@@ -478,7 +478,7 @@ class FozzApp {
         <div style="text-align: center; margin: auto; padding: 2rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
           <h4>Shopping Bag Masih Kosong</h4>
-          <p style="font-size: 0.8rem; margin-top: 0.5rem;">Belum ada drop yang diamankan. Eksplorasi katalog sekarang.</p>
+          <p style="font-size: 0.8rem; margin-top: 0.5rem;">Belum ada artikel pilihan Anda. Temukan koleksi favorit dengan bahan katun kelas tertinggi di katalog sekarang.</p>
         </div>
       `;
       footer.style.display = 'none';
@@ -606,7 +606,7 @@ class FozzApp {
   openCheckoutModal() {
     const cart = DB.getCart();
     if (cart.length === 0) {
-      this.showToast('Bag masih kosong. Amankan drop dulu.', 'info');
+      this.showToast('Keranjang belanja Anda masih kosong. Silakan pilih koleksi favorit terlebih dahulu.', 'info');
       return;
     }
 
@@ -637,22 +637,397 @@ class FozzApp {
     const currentUser = DB.getCurrentUser();
     const address = document.getElementById('checkout-address').value;
     const courier = document.getElementById('checkout-courier').value;
+    const paymentMethod = document.getElementById('checkout-payment-method').value || 'qris';
 
-    // Relational Checkout Creation + Atomic Trigger:
-    // 1. Record created in `orders`
-    // 2. Line items created in `order_items` (locked price)
-    // 3. Status set to 'Paid' -> atomik stock deduction trigger executed!
-    const newOrder = DB.createOrder(currentUser.id, cart, address, courier, 20000, "Paid");
+    // 1. Relational Order Inisiasi berstatus 'Pending' (TTL 15 Menit)
+    // 2. Line items terkunci di `order_items` (anti-distorsi harga)
+    // 3. Masuk ke Payment Gateway Engine untuk penyelesaian transaksi real-time
+    const newOrder = DB.createOrder(currentUser.id, cart, address, courier, 20000, "Pending", paymentMethod);
 
     this.closeModal('checkout-modal');
     this.updateCartBadges();
-    this.renderCatalog(); // Refresh catalog to show updated stock
-    this.showToast(`Drop #${newOrder.id} sukses terkunci! Slot diverifikasi.`, 'success');
+    this.renderCatalog();
+    this.showToast(`Order #${newOrder.id} dibuat. Menghubungkan ke Payment Gateway...`, 'info');
 
-    // Open order history to view the freshly created order
+    // Buka Gateway Simulation Modal
     setTimeout(() => {
+      this.openPaymentGatewayModal(newOrder.id);
+    }, 250);
+  }
+
+  // --- REAL-TIME PAYMENT GATEWAY SIMULATION ENGINE ---
+  openPaymentGatewayModal(orderId) {
+    const order = DB.getOrders().find(o => o.id === orderId);
+    if (!order) return;
+
+    this.activeGatewayOrderId = orderId;
+
+    // Set UI Texts
+    const orderIdEl = document.getElementById('gateway-order-id');
+    const orderStatusEl = document.getElementById('gateway-order-status');
+    const methodNameEl = document.getElementById('gateway-method-name');
+    const orderTotalEl = document.getElementById('gateway-order-total');
+
+    if (orderIdEl) orderIdEl.textContent = `#${order.id}`;
+    if (orderStatusEl) {
+      orderStatusEl.textContent = order.status_pesanan;
+      orderStatusEl.className = `status-pill status-${order.status_pesanan.toLowerCase()}`;
+    }
+    if (methodNameEl) {
+      const methodLabels = {
+        qris: 'QRIS Dinamis (Real-Time ASPI)',
+        va_bca: 'BCA Virtual Account (Auto-Settled)',
+        va_mandiri: 'Mandiri Virtual Account',
+        va_bri: 'BRI Virtual Account',
+        va_bni: 'BNI Virtual Account',
+        credit_card: 'Credit Card (3DS Tokenized)'
+      };
+      methodNameEl.textContent = methodLabels[order.payment_method] || 'Payment Gateway';
+    }
+    if (orderTotalEl) orderTotalEl.textContent = this.formatRupiah(order.total_harga);
+
+    // Render payment specific instrument view (QRIS / VA)
+    this.renderPaymentInstrument(order);
+
+    // Start Expiration Timer (15 Minutes countdown)
+    this.startGatewayCountdown(order);
+
+    // Initialize Terminal Logs
+    this.initGatewayTerminal(order);
+
+    this.openModal('payment-gateway-modal');
+  }
+
+  closePaymentGatewayModal() {
+    if (this.gatewayCountdownInterval) {
+      clearInterval(this.gatewayCountdownInterval);
+    }
+    this.closeModal('payment-gateway-modal');
+  }
+
+  startGatewayCountdown(order) {
+    if (this.gatewayCountdownInterval) {
+      clearInterval(this.gatewayCountdownInterval);
+    }
+
+    const timerDisplay = document.getElementById('gateway-timer-display');
+    const expiryTime = new Date(order.payment_expired_at || (Date.now() + 15 * 60 * 1000)).getTime();
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const distance = expiryTime - now;
+
+      if (distance <= 0) {
+        clearInterval(this.gatewayCountdownInterval);
+        if (timerDisplay) timerDisplay.textContent = '00:00 (EXPIRED)';
+        DB.updateOrderStatus(order.id, 'Cancelled', null, { cancelled_reason: 'Waktu Pembayaran Habis (TTL 15m Expired)' });
+        this.showToast(`Order #${order.id} telah kedaluwarsa.`, 'warn');
+        this.renderCatalog();
+        return;
+      }
+
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      if (timerDisplay) {
+        timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    };
+
+    updateTimer();
+    this.gatewayCountdownInterval = setInterval(updateTimer, 1000);
+  }
+
+  initGatewayTerminal(order) {
+    const logsBody = document.getElementById('gateway-logs-body');
+    const clock = document.getElementById('gateway-terminal-clock');
+    if (clock) clock.textContent = new Date().toLocaleTimeString('id-ID');
+
+    if (!logsBody) return;
+    logsBody.innerHTML = `
+      <div class="terminal-line meta">[SYSTEM] Initializing Zero-Trust TLS 1.3 Channel...</div>
+      <div class="terminal-line">[GATEWAY] POST /v1/charge HTTP/2 &bull; Status: 201 Created</div>
+      <div class="terminal-line">[PAYLOAD] Token Ref: <span style="color:#f43f5e;">${order.transaction_id || 'TRX-PG-INIT'}</span> &bull; TTL: 900s</div>
+      <div class="terminal-line">[NETWORK] Listening on wss://gateway.fozz.co/events/${order.id}...</div>
+      <div class="terminal-line warn">[STANDBY] Menunggu konfirmasi pembayaran dari nasabah / aggregator...</div>
+    `;
+  }
+
+  appendTerminalLog(message, type = '') {
+    const logsBody = document.getElementById('gateway-logs-body');
+    if (!logsBody) return;
+    const line = document.createElement('div');
+    line.className = `terminal-line ${type}`;
+    line.innerHTML = message;
+    logsBody.appendChild(line);
+    const terminal = document.getElementById('gateway-terminal-logs');
+    if (terminal) terminal.scrollTop = terminal.scrollHeight;
+  }
+
+  renderPaymentInstrument(order) {
+    const container = document.getElementById('gateway-instrument-container');
+    if (!container) return;
+
+    if (order.status_pesanan === 'Paid') {
+      container.innerHTML = `
+        <div style="background: rgba(16, 185, 129, 0.08); border: 2px solid var(--accent-green); border-radius: var(--radius-md); padding: 2rem; text-align: center;">
+          <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--accent-green); color: #fff; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <h3 style="font-size: 1.35rem; color: var(--accent-green); margin-bottom: 0.35rem;">Pembayaran Terverifikasi Real-Time!</h3>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 500px; margin: 0 auto 1.25rem;">
+            Signature HMAC-SHA512 telah diverifikasi. Trigger atomik PostgreSQL telah memotong stok di <code class="mono-text">product_sizes</code> dan pesanan telah diteruskan ke tim gudang FOZZ HQ.
+          </p>
+          <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+            <button class="btn-primary" onclick="app.closePaymentGatewayModal(); app.openOrderHistory();">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              Lacak Perjalanan Paket & Resi &rarr;
+            </button>
+            <button class="btn-secondary" onclick="app.closePaymentGatewayModal(); app.openSchemaModal('gateway');">
+              Bedah Arsitektur Gateway
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const isQris = order.payment_method === 'qris' || order.payment_method === 'credit_card';
+
+    if (isQris) {
+      // Dynamic QRIS View
+      container.innerHTML = `
+        <div class="qris-card">
+          <div class="qris-logo-bar">
+            <span class="qris-badge-tag">QRIS</span>
+            <span style="font-size: 0.72rem; font-weight: 800; color: #1e293b;">ASPI &bull; GPN TERAKREDITASI</span>
+          </div>
+
+          <div style="font-size: 0.78rem; font-weight: 800; color: #0f172a; margin-bottom: 0.2rem;">FOZZ STREETWEAR HQ</div>
+          <div style="font-size: 0.68rem; color: #64748b; font-family: var(--font-mono); margin-bottom: 0.75rem;">NMID: ID1020268800912 &bull; TAG-01: 12 (DYNAMIC)</div>
+
+          <!-- Stylized Dynamic QR Code Container -->
+          <div class="qris-code-container">
+            <svg width="200" height="200" viewBox="0 0 200 200" style="display: block; margin: 0 auto;">
+              <!-- Outer border & corner squares -->
+              <rect x="0" y="0" width="200" height="200" fill="#ffffff"/>
+              <!-- Position Corner Top-Left -->
+              <rect x="15" y="15" width="45" height="45" fill="#000000"/>
+              <rect x="22" y="22" width="31" height="31" fill="#ffffff"/>
+              <rect x="29" y="29" width="17" height="17" fill="#000000"/>
+              <!-- Position Corner Top-Right -->
+              <rect x="140" y="15" width="45" height="45" fill="#000000"/>
+              <rect x="147" y="22" width="31" height="31" fill="#ffffff"/>
+              <rect x="154" y="29" width="17" height="17" fill="#000000"/>
+              <!-- Position Corner Bottom-Left -->
+              <rect x="15" y="140" width="45" height="45" fill="#000000"/>
+              <rect x="22" y="147" width="31" height="31" fill="#ffffff"/>
+              <rect x="29" y="154" width="17" height="17" fill="#000000"/>
+              <!-- Pattern Simulation Bits -->
+              <rect x="75" y="15" width="10" height="10" fill="#000000"/>
+              <rect x="95" y="15" width="10" height="10" fill="#000000"/>
+              <rect x="115" y="15" width="10" height="10" fill="#000000"/>
+              <rect x="75" y="35" width="20" height="10" fill="#000000"/>
+              <rect x="105" y="35" width="15" height="10" fill="#000000"/>
+              <rect x="15" y="75" width="15" height="10" fill="#000000"/>
+              <rect x="35" y="75" width="15" height="10" fill="#000000"/>
+              <rect x="75" y="75" width="12" height="12" fill="#ff2a40"/>
+              <rect x="95" y="75" width="15" height="10" fill="#000000"/>
+              <rect x="135" y="75" width="20" height="10" fill="#000000"/>
+              <rect x="170" y="75" width="15" height="10" fill="#000000"/>
+              <rect x="15" y="95" width="10" height="20" fill="#000000"/>
+              <rect x="40" y="95" width="15" height="10" fill="#000000"/>
+              <rect x="70" y="95" width="25" height="10" fill="#000000"/>
+              <rect x="110" y="95" width="20" height="20" fill="#000000"/>
+              <rect x="145" y="95" width="10" height="10" fill="#000000"/>
+              <rect x="165" y="95" width="20" height="10" fill="#000000"/>
+              <rect x="15" y="120" width="25" height="10" fill="#000000"/>
+              <rect x="75" y="120" width="15" height="15" fill="#000000"/>
+              <rect x="100" y="120" width="15" height="10" fill="#ff2a40"/>
+              <rect x="135" y="120" width="15" height="20" fill="#000000"/>
+              <rect x="160" y="120" width="25" height="10" fill="#000000"/>
+              <rect x="75" y="145" width="20" height="15" fill="#000000"/>
+              <rect x="105" y="145" width="15" height="10" fill="#000000"/>
+              <rect x="155" y="145" width="30" height="10" fill="#000000"/>
+              <rect x="75" y="170" width="10" height="15" fill="#000000"/>
+              <rect x="95" y="170" width="25" height="10" fill="#000000"/>
+              <rect x="135" y="170" width="20" height="15" fill="#000000"/>
+              <rect x="165" y="170" width="15" height="15" fill="#000000"/>
+            </svg>
+            <div class="qris-emblem">FOZZ</div>
+          </div>
+
+          <div style="font-size: 0.75rem; color: #475569; margin-bottom: 0.5rem;">
+            Pindai dengan BCA Mobile, Livin', GoPay, OVO, ShopeePay, atau DANA.
+          </div>
+          <div style="font-size: 1.15rem; font-weight: 900; color: #ff2a40; font-family: var(--font-mono); margin-bottom: 0.75rem;">
+            ${this.formatRupiah(order.total_harga)}
+          </div>
+
+          <!-- Raw EMVCo String Preview Accordion -->
+          <div style="text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.5rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; font-weight: 700; color: #475569; margin-bottom: 0.25rem;">
+              <span>EMVCo Dynamic Payload:</span>
+              <button type="button" class="role-btn" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;" onclick="app.copyToClipboard('${order.qris_payload}', this)">Salin Payload</button>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 0.62rem; color: #0f172a; word-break: break-all; max-height: 48px; overflow-y: auto;">
+              ${order.qris_payload || 'EMVCo.QRIS.FOZZ.HQ.PAYLOAD'}
+            </div>
+          </div>
+
+          <!-- SIMULATOR BUTTON (Trigger Real-Time Webhook) -->
+          <button class="btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.85rem;" onclick="app.simulateWebhookPayment('${order.id}', 'qris')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            Simulasi Scan &amp; Bayar via M-Banking (Kirim Webhook)
+          </button>
+        </div>
+      `;
+    } else {
+      // Virtual Account View
+      const activeBank = (order.va_bank || 'BCA').toLowerCase();
+      const currentUser = DB.getCurrentUser();
+
+      container.innerHTML = `
+        <div class="va-display-card">
+          <!-- Bank Selector Tabs -->
+          <div style="font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem;">Pilih Rekening Bank Virtual Account:</div>
+          <div class="va-bank-selector">
+            <button class="va-bank-chip ${activeBank === 'bca' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bca')">BCA</button>
+            <button class="va-bank-chip ${activeBank === 'mandiri' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'mandiri')">MANDIRI</button>
+            <button class="va-bank-chip ${activeBank === 'bri' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bri')">BRI</button>
+            <button class="va-bank-chip ${activeBank === 'bni' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bni')">BNI</button>
+          </div>
+
+          <!-- VA Number Card -->
+          <div style="margin-bottom: 1rem;">
+            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block;">Nomor Virtual Account (${activeBank.toUpperCase()}):</label>
+            <div class="copy-input-group">
+              <input type="text" class="copy-input-field" value="${order.va_number}" readonly id="va-input-field">
+              <button class="copy-action-btn" onclick="app.copyToClipboard('${order.va_number}', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Salin VA
+              </button>
+            </div>
+          </div>
+
+          <!-- Bill Amount Card -->
+          <div style="margin-bottom: 1.25rem;">
+            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block;">Total Nominal Transfer (Exact Fixed Amount):</label>
+            <div class="copy-input-group">
+              <input type="text" class="copy-input-field" value="${this.formatRupiah(order.total_harga)}" readonly style="color: var(--accent-red);">
+              <button class="copy-action-btn" onclick="app.copyToClipboard('${order.total_harga}', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Salin Nominal
+              </button>
+            </div>
+          </div>
+
+          <div style="background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
+              <span style="color: var(--text-muted);">Nama Rekening Tujuan:</span>
+              <strong>FOZZ - ${(currentUser.nama_lengkap || 'IVAN PRATAMA').toUpperCase()}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
+              <span style="color: var(--text-muted);">Tipe Virtual Account:</span>
+              <strong style="color: var(--accent-green);">Closed VA (Auto-Reconciled)</strong>
+            </div>
+          </div>
+
+          <!-- SIMULATOR BUTTON (Trigger Real-Time Webhook) -->
+          <button class="btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.85rem;" onclick="app.simulateWebhookPayment('${order.id}', 'va')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            Simulasi Transfer VA via Mobile Banking (Kirim Webhook)
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  selectVaBank(orderId, bankCode) {
+    const orders = DB.getOrders();
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    order.va_bank = bankCode.toUpperCase();
+    order.va_number = DB.generateVaNumber(bankCode, order.id);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+
+    this.renderPaymentInstrument(order);
+    this.appendTerminalLog(`[ROUTING] Bank Switch changed to: <span style="color:#38bdf8;">${bankCode.toUpperCase()}</span> &bull; New VA: ${order.va_number}`, 'meta');
+  }
+
+  simulateWebhookPayment(orderId, instrumentType) {
+    const order = DB.getOrders().find(o => o.id === orderId);
+    if (!order) return;
+
+    // Visual sequence showing the real-time automated verification stages
+    this.appendTerminalLog(`[CLIENT] Triggering Simulated Customer Transfer (${instrumentType.toUpperCase()})...`, 'accent');
+
+    setTimeout(() => {
+      this.appendTerminalLog(`[AGGREGATOR] Network Clearing Switch (BI-FAST/ASPI): Transaction Authorized ✓`, 'success');
+    }, 200);
+
+    setTimeout(() => {
+      this.appendTerminalLog(`[INBOUND WEBHOOK] HTTP 200 POST /api/webhooks/payment-gateway`, 'accent');
+      this.appendTerminalLog(`&nbsp;&nbsp;&bull; Payload: { order_id: "${order.id}", status: "settlement", gross_amount: ${order.total_harga} }`, 'meta');
+      this.appendTerminalLog(`&nbsp;&nbsp;&bull; Header X-Signature: HMAC-SHA512(<span style="color:#34d399;">VALIDATED_MATCH</span>)`, 'success');
+      this.appendTerminalLog(`&nbsp;&nbsp;&bull; Idempotency-Key Check: <span style="color:#34d399;">PASS (No Replay)</span>`, 'success');
+    }, 450);
+
+    setTimeout(() => {
+      this.appendTerminalLog(`[DATABASE TRANSACTION] BEGIN;`, 'meta');
+      this.appendTerminalLog(`&nbsp;&nbsp;&bull; UPDATE orders SET status_pesanan = 'Paid' WHERE id = '${order.id}';`, 'meta');
+      this.appendTerminalLog(`&nbsp;&nbsp;&bull; <span style="color:#f43f5e; font-weight:800;">TRIGGER ATOMIK:</span> UPDATE product_sizes SET stok = stok - oi.jumlah;`, 'accent');
+      this.appendTerminalLog(`[DATABASE TRANSACTION] COMMIT; &bull; Stock locked permanently!`, 'success');
+
+      // Update database status
+      DB.updateOrderStatus(order.id, 'Paid', null, {
+        settlement_time: new Date().toISOString(),
+        signature_verified: true,
+        webhook_received: true
+      });
+
+      this.renderCatalog();
+      this.updateCartBadges();
+
+      // Broadcast real-time push to client UI
+      this.appendTerminalLog(`[REAL-TIME BROADCAST] WebSocket push -> Client UI State Updated to PAID!`, 'success');
+
+      const updatedOrder = DB.getOrders().find(o => o.id === orderId);
+      const statusPill = document.getElementById('gateway-order-status');
+      if (statusPill) {
+        statusPill.textContent = 'Paid';
+        statusPill.className = 'status-pill status-paid';
+      }
+
+      this.renderPaymentInstrument(updatedOrder);
+      this.showToast(`Pembayaran #${order.id} terverifikasi via Webhook real-time!`, 'success');
+    }, 850);
+  }
+
+  copyToClipboard(text, btnElement) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btnElement ? btnElement.innerHTML : '';
+        if (btnElement) {
+          btnElement.innerHTML = `✓ Tersalin!`;
+          btnElement.style.background = 'var(--accent-green)';
+          setTimeout(() => {
+            btnElement.innerHTML = originalText;
+            btnElement.style.background = '';
+          }, 1500);
+        }
+        this.showToast('Teks berhasil disalin ke clipboard.', 'success');
+      });
+    }
+  }
+
+  confirmCancelOrder(orderId) {
+    if (confirm(`Apakah Anda yakin ingin membatalkan pesanan #${orderId}? Alokasi stok akan dilepaskan.`)) {
+      DB.cancelOrder(orderId, "Dibatalkan oleh Pelanggan");
+      this.renderCatalog();
       this.openOrderHistory();
-    }, 400);
+      this.showToast(`Pesanan #${orderId} telah dibatalkan. Kuota dilepaskan ke katalog.`, 'info');
+    }
   }
 
   // --- ORDER HISTORY & REAL-TIME LOGISTICS TRACKING ---
@@ -667,7 +1042,7 @@ class FozzApp {
         <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
           <h3>Belum ada order untuk dilacak</h3>
-          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Sikat drop favorit di katalog, lalu pantau resi kurirnya di sini.</p>
+          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Pilih koleksi favorit Anda di katalog, lalu pantau perjalanan paket dan nomor resi secara real-time di sini.</p>
         </div>
       `;
     } else {
@@ -675,12 +1050,11 @@ class FozzApp {
         const items = DB.getOrderItems().filter(i => i.order_id === ord.id);
         const dateStr = new Date(ord.created_at).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 
-        const statusClass = `status-${ord.status_pesanan.toLowerCase()}`;
-
-        // Logistics Timeline Steps
+        const isPending = ord.status_pesanan === 'Pending';
         const isPaid = ord.status_pesanan === 'Paid' || ord.status_pesanan === 'Shipped' || ord.status_pesanan === 'Delivered';
-        const isShipped = ord.status_pesanan === 'Shipped' || ord.status_pesanan === 'Delivered';
-        const isDelivered = ord.status_pesanan === 'Delivered';
+        const isCancelled = ord.status_pesanan === 'Cancelled' || ord.status_pesanan === 'Refunded';
+
+        const statusClass = `status-${ord.status_pesanan.toLowerCase()}`;
 
         const itemsSummary = items.map(it => {
           const prod = DB.getProductById(it.product_id);
@@ -693,21 +1067,44 @@ class FozzApp {
         }).join('');
 
         return `
-          <div class="stat-card" style="padding: 1.5rem;">
+          <div class="stat-card" style="padding: 1.5rem; ${isPending ? 'border-color: var(--accent-gold);' : ''}">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
               <div>
                 <span class="mono-text" style="font-size: 0.75rem; color: var(--accent-red); font-weight: 700;">#${ord.id}</span>
                 <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">&bull; ${dateStr}</span>
                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;">Kurir: <strong style="color: var(--text-primary);">${ord.courier || 'Ekspedisi Reguler'}</strong></div>
+                ${ord.payment_method ? `
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
+                    Metode: <strong style="color: var(--text-primary); text-transform: uppercase;">${ord.payment_method.replace('_', ' ')}</strong>
+                    ${isPaid ? '<span style="color: var(--accent-green); font-weight: 700; margin-left: 0.35rem;">✓ Settlement Verified</span>' : ''}
+                  </div>
+                ` : ''}
               </div>
-              <span class="status-pill ${statusClass}">${ord.status_pesanan}</span>
+              <span class="status-pill ${statusClass}">
+                ${isPending ? '<span class="beacon-pulse amber"></span>' : ''}
+                ${ord.status_pesanan}
+              </span>
             </div>
+
+            ${isPending ? `
+              <!-- Pending Payment Urgent Banner -->
+              <div style="background: rgba(245, 158, 11, 0.08); border: 1.5px solid var(--accent-gold); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div>
+                  <strong style="color: var(--accent-gold); font-size: 0.82rem; display: block;">Menunggu Pembayaran Real-Time:</strong>
+                  <span style="font-size: 0.75rem; color: var(--text-secondary);">Kunci stok artikel limited edition Anda sebelum jendela TTL 15 menit habis.</span>
+                </div>
+                <button class="btn-primary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem; background: var(--accent-red);" onclick="app.openPaymentGatewayModal('${ord.id}')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                  Bayar Sekarang (QRIS / VA) &rarr;
+                </button>
+              </div>
+            ` : ''}
 
             <!-- Items details -->
             <div style="background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1rem;">
               ${itemsSummary}
               <div style="display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; border-top: 1px dashed var(--border-color); margin-top: 0.5rem; padding-top: 0.5rem;">
-                <span>Total Pembayaran (Termasuk Ongkir):</span>
+                <span>Total Tagihan Pesanan:</span>
                 <span class="mono-text" style="color: var(--accent-red);">${this.formatRupiah(ord.total_harga)}</span>
               </div>
             </div>
@@ -717,7 +1114,7 @@ class FozzApp {
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
                 <span style="color: var(--text-muted);">Nomor Resi (Airway Bill):</span>
                 <span class="mono-text" style="font-weight: 700; color: ${ord.resi_pengiriman ? 'var(--accent-silver)' : 'var(--accent-gold)'};">
-                  ${ord.resi_pengiriman ? ord.resi_pengiriman : 'Menunggu Input Resi oleh HQ'}
+                  ${ord.resi_pengiriman ? ord.resi_pengiriman : (isPending ? 'Menunggu Pelunasan Tagihan' : 'Menunggu Input Resi oleh HQ')}
                 </span>
               </div>
               <div style="font-size: 0.75rem; color: var(--text-muted);">Tujuan: ${ord.alamat_pengiriman}</div>
@@ -725,14 +1122,26 @@ class FozzApp {
 
             <!-- Action buttons -->
             <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-              <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
-                Ajukan Retur / Tukar Size
-              </button>
+              ${isPending ? `
+                <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.confirmCancelOrder('${ord.id}')">
+                  Batalkan Pesanan
+                </button>
+                <button class="btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;" onclick="app.openPaymentGatewayModal('${ord.id}')">
+                  Selesaikan Pembayaran &rarr;
+                </button>
+              ` : ''}
+
+              ${!isPending && !isCancelled ? `
+                <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                  Ajukan Retur / Tukar Size
+                </button>
+              ` : ''}
+
               ${ord.status_pesanan === 'Shipped' ? `
                 <button class="btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;" onclick="app.confirmDelivery('${ord.id}')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  Terima Paket & Selesaikan Order
+                  Terima Paket &amp; Selesaikan Order
                 </button>
               ` : ''}
             </div>
@@ -872,7 +1281,7 @@ class FozzApp {
       recentTable.innerHTML = `
         <thead>
           <tr>
-            <th>Order ID</th>
+            <th>Nomor Pesanan</th>
             <th>Total Tagihan</th>
             <th>Status</th>
             <th>Tanggal</th>
@@ -1138,14 +1547,19 @@ class FozzApp {
     if (modal) modal.classList.remove('open');
   }
 
-  openSchemaModal() {
-    const user = DB.getCurrentUser();
-    if (user && user.role === 'admin') {
-      this.openModal('schema-modal');
-    } else {
-      this.openAdminLoginModal();
-      this.showToast('Dokumentasi skema database hanya untuk tim pengembang / Admin HQ.', 'info');
-    }
+  openSchemaModal(tab = 'gateway') {
+    this.openModal('schema-modal');
+    this.switchArchTab(tab);
+  }
+
+  switchArchTab(tabName) {
+    const tabs = ['gateway', 'qris', 'va', 'db'];
+    tabs.forEach(t => {
+      const btn = document.getElementById(`tab-btn-${t}-arch`);
+      const content = document.getElementById(`arch-content-${t}`);
+      if (btn) btn.classList.toggle('active', t === tabName);
+      if (content) content.style.display = t === tabName ? 'block' : 'none';
+    });
   }
 
   navigateTo(section, params = {}) {
@@ -1189,7 +1603,7 @@ class FozzApp {
     const orders = user ? DB.getOrders().filter(o => o.user_id === user.id) : DB.getOrders();
 
     orderSelect.innerHTML = `
-      <option value="">-- Pilih Order yang Mau Diretur / Ditukar --</option>
+      <option value="">-- Pilih Nomor Pesanan --</option>
       ${orders.map(o => {
         const dateStr = new Date(o.created_at).toLocaleDateString('id-ID');
         return `<option value="${o.id}" ${o.id === preselectedOrderId ? 'selected' : ''}>#${o.id} &bull; Status: ${o.status_pesanan} &bull; ${this.formatRupiah(o.total_harga)} (${dateStr})</option>`;
@@ -1212,7 +1626,7 @@ class FozzApp {
     if (!prodSelect) return;
 
     if (!orderId) {
-      prodSelect.innerHTML = `<option value="">-- Pilih order terlebih dahulu --</option>`;
+      prodSelect.innerHTML = `<option value="">-- Pilih Nomor Pesanan terlebih dahulu --</option>`;
       return;
     }
 
@@ -1558,6 +1972,44 @@ class FozzApp {
       DB.updateReturnStatus(returnId, 'completed', 'Unit baru telah dikirimkan ke alamat Anda.', tracking);
       this.renderAdminReturns();
       this.showToast(`Resi unit baru ${tracking} terpasang & tiket RMA diselesaikan!`, 'success');
+    }
+  }
+
+  // --- HERO SHOWCASE VIDEO CONTROLS ---
+  toggleHeroVideoMute() {
+    const vid = document.getElementById('hero-video');
+    const icon = document.getElementById('hero-video-mute-icon');
+    const text = document.getElementById('hero-video-mute-text');
+    if (!vid) return;
+
+    vid.muted = !vid.muted;
+    if (icon && text) {
+      icon.textContent = vid.muted ? '🔇' : '🔊';
+      text.textContent = vid.muted ? 'UNMUTE' : 'MUTE';
+    }
+    this.showToast(vid.muted ? 'Audio Runway dibisukan' : 'Audio Runway diaktifkan', 'info');
+  }
+
+  toggleHeroVideoPlay() {
+    const vid = document.getElementById('hero-video');
+    const icon = document.getElementById('hero-video-play-icon');
+    const text = document.getElementById('hero-video-play-text');
+    if (!vid) return;
+
+    if (vid.paused) {
+      vid.play();
+      if (icon && text) {
+        icon.textContent = '⏸️';
+        text.textContent = 'PAUSE';
+      }
+      this.showToast('Memutar Runway Motion Reel', 'info');
+    } else {
+      vid.pause();
+      if (icon && text) {
+        icon.textContent = '▶';
+        text.textContent = 'PLAY';
+      }
+      this.showToast('Runway Motion Reel dijeda', 'info');
     }
   }
 }

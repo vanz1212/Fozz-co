@@ -53,7 +53,7 @@ const SEED_PRODUCTS = [
   {
     id: "prod-001",
     nama_produk: "Dark Washed Denim Jacket",
-    deskripsi: "Premium 14.5oz Japanese Selvedge Denim dengan treatment vintage hand-distressed wash. Boxy oversized silhouette, custom engraved hardware matte gunmetal, dan lining katun herringbone halus.",
+    deskripsi: "Premium 14.5oz Japanese Selvedge Denim dengan treatment vintage hand-distressed wash. Boxy oversized silhouette, custom engraved hardware matte gunmetal, dan lining katun herringbone halus. Stok terjamin real-time dengan Garansi Pas 7 Hari.",
     harga: 899000,
     kategori: "Outerwear",
     gambar_url: "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&w=900&q=80",
@@ -62,7 +62,7 @@ const SEED_PRODUCTS = [
   {
     id: "prod-002",
     nama_produk: "Heavyweight Boxy Hoodie - Slate Black",
-    deskripsi: "480 GSM French Terry Cotton organik dengan double-layered structured hood. Dropped shoulders, kangaroo pocket tersembunyi, rib knit tebal di pinggang dan manset tahan melar.",
+    deskripsi: "Bahan Katun Kelas Tertinggi 480 GSM French Terry Cotton organik dengan double-layered structured hood. Sangat lembut dan sejuk di kulit, dropped shoulders, kangaroo pocket tersembunyi, dan rib knit tebal tahan melar. Dilengkapi Garansi Pas 7 Hari.",
     harga: 649000,
     kategori: "Hoodie",
     gambar_url: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=900&q=80",
@@ -71,7 +71,7 @@ const SEED_PRODUCTS = [
   {
     id: "prod-003",
     nama_produk: "Tactical Cargo Pants - Olive Drab",
-    deskripsi: "Ripstop Military Grade Cordura blend tahan sobek dengan water-repellent coating. 6 saku ergonomis, adjustable ankle bungee drawstring, dan artikulasi lutut untuk mobilitas urban.",
+    deskripsi: "Ripstop Military Grade Cordura blend tahan sobek dengan water-repellent coating. 6 saku ergonomis, adjustable ankle bungee drawstring, dan artikulasi lutut untuk kenyamanan mobilitas urban harian. Dilengkapi Garansi Pas 7 Hari.",
     harga: 589000,
     kategori: "Pants",
     gambar_url: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=900&q=80",
@@ -80,7 +80,7 @@ const SEED_PRODUCTS = [
   {
     id: "prod-004",
     nama_produk: "Cyber Graphic Heavy Tee - Bone White",
-    deskripsi: "235 GSM combed compact cotton. High-density screenprint grafis distopia bertema 'Zero-Trust Protocol' di dada dan punggung. Rib collar 3cm anti-bacon.",
+    deskripsi: "Bahan Katun Kelas Tertinggi 235 GSM Combed Compact Cotton. Nyaman dan sejuk sepanjang hari dengan rib collar 3cm anti-melar. High-density screenprint grafis eksklusif di dada dan punggung. Stok terjamin real-time & Garansi Pas 7 Hari.",
     harga: 329000,
     kategori: "T-Shirt",
     gambar_url: "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80",
@@ -89,7 +89,7 @@ const SEED_PRODUCTS = [
   {
     id: "prod-005",
     nama_produk: "Technical Nylon Shell Windbreaker",
-    deskripsi: "Ultra-lightweight 3-layer laminated nylon dengan waterproof zipper YKK Aquaguard. Ventilasi laser-cut di ketiak dan reflective subtle branding di tengkuk.",
+    deskripsi: "Ultra-lightweight 3-layer laminated nylon dengan waterproof zipper YKK Aquaguard. Ventilasi laser-cut di ketiak dan reflective subtle branding di tengkuk. Tahan angin dan hujan ringan, stok terjamin real-time.",
     harga: 749000,
     kategori: "Outerwear",
     gambar_url: "https://images.unsplash.com/photo-1548883354-7622d03aca27?auto=format&fit=crop&w=900&q=80",
@@ -98,7 +98,7 @@ const SEED_PRODUCTS = [
   {
     id: "prod-006",
     nama_produk: "Fozz Modular Crossbody Sling Bag",
-    deskripsi: "Ballistic Nylon 1000D dengan buckle Fidlock magnetik buatan Jerman. Kompartemen internal terproteksi busa untuk aksesoris digital dan strap bahu modular.",
+    deskripsi: "Ballistic Nylon 1000D dengan buckle Fidlock magnetik buatan Jerman. Kompartemen internal terproteksi busa empuk untuk perlindungan aksesoris digital dan strap bahu modular ergonomis. Garansi Pas 7 Hari.",
     harga: 429000,
     kategori: "Accessories",
     gambar_url: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=900&q=80",
@@ -400,7 +400,59 @@ class FozzDatabase {
    * 2. Membuat record terpisah di order_items (Foreign Key ke orders.id dan products.id, mengunci harga_satuan)
    * 3. Prosedur Trigger Atomik: Ketika status menjadi 'Paid', stok pada product_sizes dikurangi secara atomik
    */
-  createOrder(userId, items, shippingAddress, courierName, shippingCost = 20000, initialStatus = "Paid") {
+  /**
+   * Helper Generator EMVCo Dynamic QRIS Payload (ASPI Standard)
+   */
+  generateQrisPayload(orderId, amount) {
+    const amtStr = Math.round(amount).toString();
+    const amtLen = amtStr.length.toString().padStart(2, '0');
+    const orderPart = `01${orderId.length.toString().padStart(2, '0')}${orderId}`;
+    const tag62Len = orderPart.length.toString().padStart(2, '0');
+    
+    // Construct base payload according to EMVCo / Bank Indonesia QRIS specs
+    const base = `00020101021226600016ID.CO.FOZZ.WWW01189360099882211000000215ID102026880091252045691530336054${amtLen}${amtStr}5802ID5918FOZZ STREETWEAR HQ6007JAKARTA62${tag62Len}${orderPart}6304`;
+    
+    // Mock CRC16-CCITT calculation for authentic 4-hex checksum
+    let crc = 0xFFFF;
+    for (let i = 0; i < base.length; i++) {
+      crc ^= (base.charCodeAt(i) << 8);
+      for (let j = 0; j < 8; j++) {
+        if ((crc & 0x8000) !== 0) {
+          crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+        } else {
+          crc = (crc << 1) & 0xFFFF;
+        }
+      }
+    }
+    const hexCrc = crc.toString(16).toUpperCase().padStart(4, '0');
+    return base + hexCrc;
+  }
+
+  /**
+   * Helper Generator 16-Digit Virtual Account Number
+   */
+  generateVaNumber(bankCode = 'bca', orderId = '') {
+    const prefixes = {
+      bca: '88012',
+      mandiri: '89901',
+      bri: '10234',
+      bni: '98811'
+    };
+    const prefix = prefixes[bankCode.toLowerCase()] || '88012';
+    // Gunakan hash numerik konsisten dari order ID + timestamp
+    const cleanId = (orderId.replace(/\D/g, '') || Date.now().toString()).slice(-7);
+    const suffix = (cleanId + '8590123').slice(0, 11);
+    return prefix + suffix;
+  }
+
+  /**
+   * Checkout Process:
+   * 1. Membuat record di orders dengan status 'Pending' (atau 'Paid' jika simulasi direct)
+   * 2. Membuat record terpisah di order_items (Foreign Key ke orders.id dan products.id, mengunci harga_satuan)
+   * 3. Menyimpan metadata Payment Gateway (Dynamic QRIS, Virtual Account, TTL Expiry 15 Menit)
+   * 4. Prosedur Trigger Atomik: Ketika status bergeser ke 'Paid', stok pada product_sizes dipotong secara atomik
+   */
+  createOrder(userId, items, shippingAddress, courierName, shippingCost = 20000, initialStatus = "Pending", paymentMethod = "qris") {
     const orders = this.getOrders();
     const orderItems = this.getOrderItems();
     const productSizes = this.getProductSizes();
@@ -413,15 +465,40 @@ class FozzDatabase {
       }
     });
 
+    const grandTotal = itemsTotal + shippingCost;
     const newOrderId = `ord-${Date.now().toString().slice(-6)}`;
+    
+    // Tentukan bank jika metode adalah VA
+    let selectedBank = 'bca';
+    if (paymentMethod.startsWith('va_')) {
+      selectedBank = paymentMethod.replace('va_', '');
+    }
+
+    const vaNumber = this.generateVaNumber(selectedBank, newOrderId);
+    const qrisPayload = this.generateQrisPayload(newOrderId, grandTotal);
+
     const newOrder = {
       id: newOrderId,
       user_id: userId,
-      total_harga: itemsTotal + shippingCost,
+      total_harga: grandTotal,
       status_pesanan: initialStatus,
       alamat_pengiriman: shippingAddress,
       resi_pengiriman: null,
       courier: courierName,
+      payment_method: paymentMethod, // 'qris', 'va_bca', 'va_mandiri', 'va_bri', 'va_bni', 'credit_card'
+      payment_status: initialStatus === "Paid" ? "settled" : "pending",
+      payment_expired_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 Menit TTL
+      transaction_id: `TRX-PG-${Date.now().toString().slice(-8)}`,
+      va_number: vaNumber,
+      va_bank: selectedBank.toUpperCase(),
+      qris_payload: qrisPayload,
+      payment_meta: {
+        created_at: new Date().toISOString(),
+        settlement_time: initialStatus === "Paid" ? new Date().toISOString() : null,
+        signature_verified: initialStatus === "Paid",
+        webhook_received: initialStatus === "Paid",
+        idempotency_key: `idemp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      },
       created_at: new Date().toISOString()
     };
 
@@ -455,7 +532,7 @@ class FozzDatabase {
     return newOrder;
   }
 
-  updateOrderStatus(orderId, newStatus, resi = null) {
+  updateOrderStatus(orderId, newStatus, resi = null, paymentMeta = null) {
     const orders = this.getOrders();
     const order = orders.find(o => o.id === orderId);
     if (!order) return null;
@@ -465,9 +542,16 @@ class FozzDatabase {
     if (resi !== null) {
       order.resi_pengiriman = resi;
     }
+    if (paymentMeta) {
+      order.payment_meta = { ...(order.payment_meta || {}), ...paymentMeta };
+      if (paymentMeta.settlement_time) {
+        order.payment_status = "settled";
+      }
+    }
 
-    // Jika sebelumnya Pending lalu sekarang Paid, jalankan trigger pengurangan stok
+    // Jika sebelumnya Pending lalu sekarang Paid, jalankan TRIGGER ATOMIK pengurangan stok
     if (previousStatus === "Pending" && newStatus === "Paid") {
+      order.payment_status = "settled";
       const orderItems = this.getOrderItems().filter(i => i.order_id === orderId);
       const productSizes = this.getProductSizes();
       orderItems.forEach(item => {
@@ -479,8 +563,28 @@ class FozzDatabase {
       localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(productSizes));
     }
 
+    // Jika pesanan dibatalkan setelah Paid (misal refund/retur), pulihkan stok atomik
+    if (previousStatus === "Paid" && (newStatus === "Cancelled" || newStatus === "Refunded")) {
+      const orderItems = this.getOrderItems().filter(i => i.order_id === orderId);
+      const productSizes = this.getProductSizes();
+      orderItems.forEach(item => {
+        const sizeEntry = productSizes.find(s => s.product_id === item.product_id && s.ukuran === item.ukuran);
+        if (sizeEntry) {
+          sizeEntry.stok = sizeEntry.stok + item.jumlah;
+        }
+      });
+      localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(productSizes));
+    }
+
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
     return order;
+  }
+
+  cancelOrder(orderId, reason = "Dibatalkan oleh Pelanggan") {
+    return this.updateOrderStatus(orderId, "Cancelled", null, {
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason
+    });
   }
 
   // --- Returns & RMA System ---
