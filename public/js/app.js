@@ -18,6 +18,7 @@ class FozzApp {
 
   init() {
     this.initTheme();
+    this.initRouting();
     this.updateUserUI();
     this.renderCatalog();
     this.updateCartBadges();
@@ -36,6 +37,7 @@ class FozzApp {
       document.body.removeAttribute('data-theme');
       if (label) label.textContent = 'Tema: Brutal Light';
     }
+    this.updateThemeIcons();
   }
 
   toggleTheme() {
@@ -45,13 +47,24 @@ class FozzApp {
       document.body.removeAttribute('data-theme');
       localStorage.setItem('fozz_theme', 'light');
       if (label) label.textContent = 'Tema: Brutal Light';
-      this.showToast('Beralih ke Tema Brutal Light (High Contrast)', 'success');
+      this.showToast('Tema: Brutal Light aktif.', 'success');
     } else {
       document.body.setAttribute('data-theme', 'dark');
       localStorage.setItem('fozz_theme', 'dark');
       if (label) label.textContent = 'Tema: Brutal Dark';
-      this.showToast('Beralih ke Tema Brutal Dark (High Contrast)', 'info');
+      this.showToast('Tema: Brutal Dark aktif.', 'info');
     }
+    this.updateThemeIcons();
+  }
+
+  updateThemeIcons() {
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    const icons = document.querySelectorAll('.theme-toggle-icon');
+    icons.forEach(el => {
+      el.innerHTML = isDark 
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+    });
   }
 
   // Helper Formatter Rupiah
@@ -87,40 +100,127 @@ class FozzApp {
     }, 2800);
   }
 
-  // Switch between Customer Storefront and HQ Portal Admin (CMS)
-  switchRole(role) {
-    this.currentRole = role;
+  // --- ROUTING & ADMIN ACCESS GATE ---
+  initRouting() {
+    window.addEventListener('hashchange', () => this.handleRouting());
+    this.handleRouting();
+  }
+
+  handleRouting() {
+    const hash = window.location.hash;
+    if (hash === '#admin' || hash === '#/admin' || window.location.pathname === '/admin') {
+      const user = DB.getCurrentUser();
+      if (user && user.role === 'admin') {
+        this.showAdminView();
+      } else {
+        this.showCustomerView();
+        this.openAdminLoginModal();
+      }
+    } else {
+      this.showCustomerView();
+    }
+  }
+
+  requestAdminAccess(event) {
+    if (event) event.preventDefault();
+    const user = DB.getCurrentUser();
+    if (user && user.role === 'admin') {
+      window.location.hash = '#admin';
+      this.showAdminView();
+    } else {
+      this.openAdminLoginModal();
+    }
+  }
+
+  openAdminLoginModal() {
+    const errorEl = document.getElementById('admin-login-error');
+    if (errorEl) {
+      errorEl.style.display = 'none';
+      errorEl.textContent = '';
+    }
+    this.openModal('admin-login-modal');
+  }
+
+  fillDemoAdminCreds() {
+    const emailInput = document.getElementById('admin-login-email');
+    const passInput = document.getElementById('admin-login-password');
+    const errorEl = document.getElementById('admin-login-error');
+    if (emailInput) emailInput.value = 'admin@fozz.co';
+    if (passInput) passInput.value = 'admin123';
+    if (errorEl) errorEl.style.display = 'none';
+  }
+
+  handleAdminLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById('admin-login-email').value.trim();
+    const errorEl = document.getElementById('admin-login-error');
+
+    const adminUser = DB.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
+
+    if (adminUser && adminUser.role === 'admin') {
+      DB.setCurrentUser(adminUser);
+      this.closeModal('admin-login-modal');
+      window.location.hash = '#admin';
+      this.showAdminView();
+      this.showToast('Autentikasi Berhasil. Selamat datang di HQ Control.', 'success');
+      if (errorEl) errorEl.style.display = 'none';
+    } else {
+      if (errorEl) {
+        errorEl.textContent = 'Akses Ditolak: Kredensial tidak valid atau akun Anda tidak memiliki hak akses administrator.';
+        errorEl.style.display = 'block';
+      }
+      this.showToast('Kredensial Admin Salah atau Tidak Memiliki Izin.', 'info');
+    }
+  }
+
+  showAdminView() {
+    this.currentRole = 'admin';
     const custView = document.getElementById('customer-view');
     const adminView = document.getElementById('admin-view');
-    const btnCust = document.getElementById('btn-switch-customer');
-    const btnAdmin = document.getElementById('btn-switch-admin');
-    const roleLabel = document.getElementById('role-label');
+    const adminUserDisplay = document.getElementById('admin-user-display');
+    const currentUser = DB.getCurrentUser();
 
-    if (role === 'admin') {
-      const adminUser = DB.getUsers().find(u => u.role === 'admin') || DB.getUsers()[0];
-      DB.setCurrentUser(adminUser);
-
-      custView.style.display = 'none';
-      adminView.style.display = 'block';
-      btnCust.classList.remove('active');
-      btnAdmin.classList.add('active');
-      roleLabel.textContent = `ADMIN HQ: ${adminUser.nama_lengkap}`;
-      this.refreshAdminData();
-      this.showToast('Beralih ke HQ Portal (Admin CMS - fozz.co/hq-portal)', 'success');
-    } else {
-      const custUser = DB.getUsers().find(u => u.role === 'customer') || DB.getUsers()[1];
-      DB.setCurrentUser(custUser);
-
-      custView.style.display = 'block';
-      adminView.style.display = 'none';
-      btnCust.classList.add('active');
-      btnAdmin.classList.remove('active');
-      roleLabel.textContent = `CUSTOMER: ${custUser.nama_lengkap}`;
-      this.renderCatalog();
-      this.showToast('Beralih ke Portal Publik Pelanggan (fozz.co)', 'info');
+    if (custView) custView.style.display = 'none';
+    if (adminView) adminView.style.display = 'block';
+    if (adminUserDisplay && currentUser) {
+      adminUserDisplay.textContent = `${currentUser.nama_lengkap} (Admin)`;
     }
 
+    this.refreshAdminData();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  showCustomerView() {
+    this.currentRole = 'customer';
+    const custView = document.getElementById('customer-view');
+    const adminView = document.getElementById('admin-view');
+
+    if (custView) custView.style.display = 'block';
+    if (adminView) adminView.style.display = 'none';
+
     this.updateUserUI();
+  }
+
+  logoutAdmin() {
+    const customerUser = DB.getUsers().find(u => u.role === 'customer') || SEED_USERS[1];
+    DB.setCurrentUser(customerUser);
+
+    if (window.location.hash === '#admin' || window.location.hash === '#/admin') {
+      history.pushState(null, document.title, window.location.pathname + window.location.search);
+    }
+
+    this.showCustomerView();
+    this.renderCatalog();
+    this.showToast('Sesi Admin HQ ditutup. Kembali ke Storefront.', 'info');
+  }
+
+  // Switch between Customer Storefront and HQ Portal Admin (CMS)
+  switchRole(role) {
+    if (role === 'admin') {
+      this.requestAdminAccess();
+    } else {
+      this.logoutAdmin();
+    }
   }
 
   updateUserUI() {
@@ -165,15 +265,15 @@ class FozzApp {
 
     const countLabel = document.getElementById('product-count-label');
     if (countLabel) {
-      countLabel.textContent = `Menampilkan ${products.length} artikel rilis`;
+      countLabel.textContent = `${products.length} drop tersedia`;
     }
 
     if (products.length === 0) {
       grid.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 4rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <h3>Tidak ada artikel yang cocok dengan filter</h3>
-          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Coba reset kata kunci pencarian atau pilih kategori lain.</p>
+          <h3>Nol hasil untuk filter ini</h3>
+          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Coba reset kata kunci atau pilih kategori drop lain.</p>
         </div>
       `;
       return;
@@ -214,7 +314,7 @@ class FozzApp {
             <div class="product-card-footer">
               <div class="product-price">${this.formatRupiah(prod.harga)}</div>
               <button class="btn-view-product" onclick="app.openProductModal('${prod.id}')">
-                Detail & Beli
+                Detail Drop
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
               </button>
             </div>
@@ -313,7 +413,7 @@ class FozzApp {
     const label = document.getElementById('selected-size-stock-label');
     const addBtn = document.getElementById('btn-modal-add-to-cart');
     if (!this.activeModalProduct || !this.selectedProductSize) {
-      if (label) label.textContent = 'Silakan pilih ukuran yang tersedia';
+      if (label) label.textContent = 'Pilih size yang tersedia';
       if (addBtn) addBtn.disabled = true;
       return;
     }
@@ -323,13 +423,13 @@ class FozzApp {
 
     if (targetSize && targetSize.stok > 0) {
       if (label) {
-        label.textContent = `Tersedia ${targetSize.stok} pcs tersisa`;
+        label.textContent = `${targetSize.stok} pcs tersisa • Fast moving`;
         label.style.color = 'var(--accent-green)';
       }
       if (addBtn) addBtn.disabled = false;
     } else {
       if (label) {
-        label.textContent = 'Ukuran ini habis (Sold Out)';
+        label.textContent = 'Size ini habis (Sold Out)';
         label.style.color = 'var(--accent-red)';
       }
       if (addBtn) addBtn.disabled = true;
@@ -343,7 +443,7 @@ class FozzApp {
     this.updateCartBadges();
     this.closeModal('product-detail-modal');
     this.toggleCartDrawer(true);
-    this.showToast(`Slot ${this.activeModalProduct.nama_produk} (${this.selectedProductSize}) berhasil diamankan!`, 'success');
+    this.showToast(`Slot ${this.activeModalProduct.nama_produk} (Size ${this.selectedProductSize}) berhasil diamankan!`, 'success');
   }
 
   toggleWishlistFromModal() {
@@ -377,8 +477,8 @@ class FozzApp {
       body.innerHTML = `
         <div style="text-align: center; margin: auto; padding: 2rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-          <h4>Keranjang Anda Kosong</h4>
-          <p style="font-size: 0.8rem; margin-top: 0.5rem;">Eksplorasi koleksi rilis eksklusif FOZZ.CO sekarang.</p>
+          <h4>Shopping Bag Masih Kosong</h4>
+          <p style="font-size: 0.8rem; margin-top: 0.5rem;">Belum ada drop yang diamankan. Eksplorasi katalog sekarang.</p>
         </div>
       `;
       footer.style.display = 'none';
@@ -443,7 +543,7 @@ class FozzApp {
     DB.removeFromCart(index);
     this.updateCartBadges();
     this.renderCartItems();
-    this.showToast('Item dihapus dari keranjang', 'info');
+    this.showToast('Item dicoret dari bag', 'info');
   }
 
   updateCartBadges() {
@@ -459,7 +559,7 @@ class FozzApp {
     this.updateWishlistBadges();
     this.renderCatalog();
     const isSaved = list.includes(productId);
-    this.showToast(isSaved ? 'Item disimpan ke Wishlist' : 'Item dihapus dari Wishlist', 'info');
+    this.showToast(isSaved ? 'Drop disimpan ke Wishlist' : 'Drop dicoret dari Wishlist', 'info');
   }
 
   updateWishlistBadges() {
@@ -471,7 +571,7 @@ class FozzApp {
   openWishlistModal() {
     const wishlist = DB.getWishlist();
     if (wishlist.length === 0) {
-      this.showToast('Wishlist Anda masih kosong. Tandai item favorit Anda di katalog.', 'info');
+      this.showToast('Wishlist masih kosong. Tandai drop incaran di katalog.', 'info');
       return;
     }
     // Filter by wishlist items
@@ -481,7 +581,7 @@ class FozzApp {
     const allProducts = DB.getProducts();
     const favProducts = allProducts.filter(p => wishlist.includes(p.id));
 
-    this.showToast(`Menampilkan ${favProducts.length} produk di Wishlist pribadi`, 'info');
+    this.showToast(`Menampilkan ${favProducts.length} drop di Wishlist`, 'info');
     grid.innerHTML = favProducts.map(prod => `
       <article class="product-card">
         <div class="product-img-wrapper" onclick="app.openProductModal('${prod.id}')" style="cursor: pointer;">
@@ -495,7 +595,7 @@ class FozzApp {
           <h3 class="product-title">${prod.nama_produk}</h3>
           <div class="product-card-footer">
             <div class="product-price">${this.formatRupiah(prod.harga)}</div>
-            <button class="btn-view-product" onclick="app.openProductModal('${prod.id}')">Lihat Detail</button>
+            <button class="btn-view-product" onclick="app.openProductModal('${prod.id}')">Detail Drop</button>
           </div>
         </div>
       </article>
@@ -506,7 +606,7 @@ class FozzApp {
   openCheckoutModal() {
     const cart = DB.getCart();
     if (cart.length === 0) {
-      this.showToast('Keranjang masih kosong', 'info');
+      this.showToast('Bag masih kosong. Amankan drop dulu.', 'info');
       return;
     }
 
@@ -547,7 +647,7 @@ class FozzApp {
     this.closeModal('checkout-modal');
     this.updateCartBadges();
     this.renderCatalog(); // Refresh catalog to show updated stock
-    this.showToast(`Drop #${newOrder.id} Berhasil Disikat! Slot terverifikasi.`, 'success');
+    this.showToast(`Drop #${newOrder.id} sukses terkunci! Slot diverifikasi.`, 'success');
 
     // Open order history to view the freshly created order
     setTimeout(() => {
@@ -566,8 +666,8 @@ class FozzApp {
       container.innerHTML = `
         <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-          <h3>Belum ada paket aktif untuk dilacak</h3>
-          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Sikat artikel favorit Anda di katalog drop, lalu pantau resinya di sini.</p>
+          <h3>Belum ada order untuk dilacak</h3>
+          <p style="font-size: 0.85rem; margin-top: 0.5rem;">Sikat drop favorit di katalog, lalu pantau resi kurirnya di sini.</p>
         </div>
       `;
     } else {
@@ -617,7 +717,7 @@ class FozzApp {
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
                 <span style="color: var(--text-muted);">Nomor Resi (Airway Bill):</span>
                 <span class="mono-text" style="font-weight: 700; color: ${ord.resi_pengiriman ? 'var(--accent-silver)' : 'var(--accent-gold)'};">
-                  ${ord.resi_pengiriman ? ord.resi_pengiriman : 'Menunggu Input Resi oleh Admin'}
+                  ${ord.resi_pengiriman ? ord.resi_pengiriman : 'Menunggu Input Resi oleh HQ'}
                 </span>
               </div>
               <div style="font-size: 0.75rem; color: var(--text-muted);">Tujuan: ${ord.alamat_pengiriman}</div>
@@ -627,12 +727,12 @@ class FozzApp {
             <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
               <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
-                Ajukan Retur / Tukar
+                Ajukan Retur / Tukar Size
               </button>
               ${ord.status_pesanan === 'Shipped' ? `
                 <button class="btn-primary" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;" onclick="app.confirmDelivery('${ord.id}')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  Terima Paket & Selesaikan Pesanan
+                  Terima Paket & Selesaikan Order
                 </button>
               ` : ''}
             </div>
@@ -647,7 +747,7 @@ class FozzApp {
   confirmDelivery(orderId) {
     DB.updateOrderStatus(orderId, 'Delivered');
     this.openOrderHistory();
-    this.showToast(`Pesanan #${orderId} telah berhasil diselesaikan. Terima kasih!`, 'success');
+    this.showToast(`Order #${orderId} diselesaikan. Drop resmi diterima!`, 'success');
   }
 
   // --- USER PROFILE ---
@@ -683,7 +783,7 @@ class FozzApp {
 
     this.updateUserUI();
     this.closeModal('user-profile-modal');
-    this.showToast('Profil dan alamat utama berhasil diperbarui', 'success');
+    this.showToast('Profil akun & alamat default berhasil diperbarui.', 'success');
   }
 
   // --- ADMIN HQ PORTAL (CMS) ---
@@ -738,30 +838,30 @@ class FozzApp {
     if (statsContainer) {
       statsContainer.innerHTML = `
         <div class="stat-card">
-          <div class="stat-card-title">Total Pendapatan Kotor</div>
+          <div class="stat-card-title">Total Omzet Kotor (Gross)</div>
           <div class="stat-card-val" style="color: var(--accent-red);">${this.formatRupiah(grossRevenue)}</div>
           <div class="stat-card-sub">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
-            +18.4% dari bulan lalu
+            +18.4% vs bulan lalu
           </div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-title">Total Pendapatan Bersih (Net)</div>
+          <div class="stat-card-title">Pendapatan Bersih (Net)</div>
           <div class="stat-card-val">${this.formatRupiah(netRevenue)}</div>
-          <div class="stat-card-sub" style="color: var(--accent-green);">Margin Bersih Sehat</div>
+          <div class="stat-card-sub" style="color: var(--accent-green);">Margin Bersih Terjaga</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-title">Total Pesanan Selesai / Terbayar</div>
-          <div class="stat-card-val">${paidOrders.length} Pesanan</div>
+          <div class="stat-card-title">Order Selesai / Terbayar</div>
+          <div class="stat-card-val">${paidOrders.length} Order</div>
           <div class="stat-card-sub" style="color: var(--accent-blue);">Konversi Checkout 94%</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-card-title">Artikel Aktif di Katalog</div>
-          <div class="stat-card-val">${products.length} Artikel</div>
-          <div class="stat-card-sub" style="color: var(--accent-silver);">Sinkronisasi Relasional Aktif</div>
+          <div class="stat-card-title">Drop Aktif di Katalog</div>
+          <div class="stat-card-val">${products.length} Drop</div>
+          <div class="stat-card-sub" style="color: var(--accent-silver);">Sinkronisasi Relasional Live</div>
         </div>
       `;
     }
@@ -805,7 +905,7 @@ class FozzApp {
         .sort((a, b) => b.count - a.count);
 
       if (sortedProds.length === 0) {
-        bestSellersList.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted);">Belum ada data penjualan tercatat.</p>`;
+        bestSellersList.innerHTML = `<p style="font-size: 0.8rem; color: var(--text-muted);">Belum ada drop yang terjual.</p>`;
       } else {
         bestSellersList.innerHTML = sortedProds.slice(0, 4).map(it => `
           <div style="display: flex; align-items: center; gap: 0.75rem; background: var(--bg-muted); padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
@@ -867,7 +967,7 @@ class FozzApp {
           </td>
           <td>
             <button class="role-btn" onclick="app.openProductModal('${prod.id}')" title="Preview Tampilan">
-              Lihat Preview
+              Preview Drop
             </button>
           </td>
         </tr>
@@ -878,7 +978,7 @@ class FozzApp {
   saveStockAdjustment(sizeId, newStock) {
     const updated = DB.updateStock(sizeId, newStock);
     if (updated) {
-      this.showToast(`Stok ukuran ${updated.ukuran} berhasil diubah menjadi ${updated.stok}`, 'success');
+      this.showToast(`Stok Size ${updated.ukuran} diupdate jadi ${updated.stok} pcs.`, 'success');
       this.renderCatalog();
     }
   }
@@ -909,7 +1009,7 @@ class FozzApp {
     this.closeModal('add-product-modal');
     this.refreshAdminData();
     this.renderCatalog();
-    this.showToast(`Koleksi "${newProd.nama_produk}" berhasil dirilis ke database!`, 'success');
+    this.showToast(`Drop "${newProd.nama_produk}" resmi dirilis ke katalog!`, 'success');
   }
 
   // --- ADMIN: ORDERS FULFILLMENT ---
@@ -946,9 +1046,9 @@ class FozzApp {
           <td class="mono-text font-weight-bold">${this.formatRupiah(ord.total_harga)}</td>
           <td>
             <select style="font-size: 0.78rem; padding: 0.35rem 0.6rem;" onchange="app.adminChangeOrderStatus('${ord.id}', this.value)">
-              <option value="Pending" ${ord.status_pesanan === 'Pending' ? 'selected' : ''}>Pending</option>
-              <option value="Paid" ${ord.status_pesanan === 'Paid' ? 'selected' : ''}>Paid (Terbayar)</option>
-              <option value="Shipped" ${ord.status_pesanan === 'Shipped' ? 'selected' : ''}>Shipped (Dikirim)</option>
+              <option value="Pending" ${ord.status_pesanan === 'Pending' ? 'selected' : ''}>Pending (Antrean)</option>
+              <option value="Paid" ${ord.status_pesanan === 'Paid' ? 'selected' : ''}>Paid (Terverifikasi)</option>
+              <option value="Shipped" ${ord.status_pesanan === 'Shipped' ? 'selected' : ''}>Shipped (Di Ekspedisi)</option>
               <option value="Delivered" ${ord.status_pesanan === 'Delivered' ? 'selected' : ''}>Delivered (Selesai)</option>
               <option value="Canceled" ${ord.status_pesanan === 'Canceled' ? 'selected' : ''}>Canceled (Batal)</option>
             </select>
@@ -957,16 +1057,16 @@ class FozzApp {
             <div style="display: flex; gap: 0.35rem;">
               <input type="text" 
                      id="resi-input-${ord.id}" 
-                     placeholder="No. Resi J&T/SiCepat" 
+                     placeholder="No. Resi (J&T / SiCepat)" 
                      value="${ord.resi_pengiriman || ''}" 
                      class="mono-text"
                      style="width: 140px; padding: 0.35rem 0.5rem; font-size: 0.75rem;">
-              <button class="role-btn" onclick="app.adminSaveResi('${ord.id}')">Simpan</button>
+              <button class="role-btn" onclick="app.adminSaveResi('${ord.id}')">Kunci Resi</button>
             </div>
           </td>
           <td>
             <button class="btn-outline-red" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="app.adminCancelFraudOrder('${ord.id}')">
-              Batalkan Fraud
+              Void Fraud
             </button>
           </td>
         </tr>
@@ -977,7 +1077,7 @@ class FozzApp {
   adminChangeOrderStatus(orderId, newStatus) {
     DB.updateOrderStatus(orderId, newStatus);
     this.refreshAdminData();
-    this.showToast(`Status pesanan #${orderId} diubah menjadi "${newStatus}"`, 'success');
+    this.showToast(`Status order #${orderId} diupdate jadi "${newStatus}".`, 'success');
   }
 
   adminSaveResi(orderId) {
@@ -986,15 +1086,15 @@ class FozzApp {
       const resiValue = input.value.trim();
       DB.updateOrderStatus(orderId, 'Shipped', resiValue);
       this.refreshAdminData();
-      this.showToast(`Resi ${resiValue} berhasil dialokasikan dan status diperbarui ke "Shipped"`, 'success');
+      this.showToast(`Resi ${resiValue} terpasang. Order #${orderId} masuk status Shipped.`, 'success');
     }
   }
 
   adminCancelFraudOrder(orderId) {
-    if (confirm(`Yakin ingin membatalkan pesanan #${orderId} karena aktivitas terindikasi fraud?`)) {
+    if (confirm(`Kunci void: Yakin batalkan order #${orderId} karena indikasi fraud?`)) {
       DB.updateOrderStatus(orderId, 'Canceled');
       this.refreshAdminData();
-      this.showToast(`Pesanan #${orderId} telah dibatalkan.`, 'info');
+      this.showToast(`Order #${orderId} di-void & dibatalkan.`, 'info');
     }
   }
 
@@ -1039,7 +1139,13 @@ class FozzApp {
   }
 
   openSchemaModal() {
-    this.openModal('schema-modal');
+    const user = DB.getCurrentUser();
+    if (user && user.role === 'admin') {
+      this.openModal('schema-modal');
+    } else {
+      this.openAdminLoginModal();
+      this.showToast('Dokumentasi skema database hanya untuk tim pengembang / Admin HQ.', 'info');
+    }
   }
 
   navigateTo(section, params = {}) {
@@ -1083,7 +1189,7 @@ class FozzApp {
     const orders = user ? DB.getOrders().filter(o => o.user_id === user.id) : DB.getOrders();
 
     orderSelect.innerHTML = `
-      <option value="">-- Pilih Pesanan yang Ingin Diretur/Ditukar --</option>
+      <option value="">-- Pilih Order yang Mau Diretur / Ditukar --</option>
       ${orders.map(o => {
         const dateStr = new Date(o.created_at).toLocaleDateString('id-ID');
         return `<option value="${o.id}" ${o.id === preselectedOrderId ? 'selected' : ''}>#${o.id} &bull; Status: ${o.status_pesanan} &bull; ${this.formatRupiah(o.total_harga)} (${dateStr})</option>`;
@@ -1106,19 +1212,19 @@ class FozzApp {
     if (!prodSelect) return;
 
     if (!orderId) {
-      prodSelect.innerHTML = `<option value="">-- Pilih pesanan terlebih dahulu --</option>`;
+      prodSelect.innerHTML = `<option value="">-- Pilih order terlebih dahulu --</option>`;
       return;
     }
 
     const items = DB.getOrderItems().filter(i => i.order_id === orderId);
     if (items.length === 0) {
-      prodSelect.innerHTML = `<option value="">Tidak ada artikel dalam pesanan ini</option>`;
+      prodSelect.innerHTML = `<option value="">Tidak ada item dalam order ini</option>`;
       return;
     }
 
     prodSelect.innerHTML = items.map(item => {
       const prod = DB.getProductById(item.product_id);
-      const name = prod ? prod.nama_produk : 'Artikel Streetwear';
+      const name = prod ? prod.nama_produk : 'Drop Streetwear';
       return `<option value="${item.product_id}|${item.ukuran}|${name}">${name} (Size ${item.ukuran}) &times; ${item.jumlah} pcs</option>`;
     }).join('');
 
@@ -1139,7 +1245,7 @@ class FozzApp {
         const isCurrent = s.ukuran === currentSize;
         const isAvailable = s.stok > 0;
         return `<option value="${s.ukuran}" ${isCurrent ? 'disabled' : ''} ${!isAvailable ? 'disabled' : ''}>
-          Size ${s.ukuran} ${isCurrent ? '(Ukuran Saat Ini)' : (isAvailable ? `(Tersedia: ${s.stok} pcs)` : '(Stok Habis)')}
+          Size ${s.ukuran} ${isCurrent ? '(Size Saat Ini)' : (isAvailable ? `(Stok: ${s.stok} pcs)` : '(Sold Out)')}
         </option>`;
       }).join('')}
     `;
@@ -1171,7 +1277,7 @@ class FozzApp {
     const stockStatus = document.getElementById('target-size-stock-status');
     if (!stockStatus) return;
     if (size) {
-      stockStatus.textContent = `Pilihan: Size ${size} (Siap dialokasikan)`;
+      stockStatus.textContent = `Pilihan: Size ${size} (Slot ready)`;
     } else {
       stockStatus.textContent = '';
     }
@@ -1181,7 +1287,7 @@ class FozzApp {
     event.preventDefault();
     const user = DB.getCurrentUser();
     if (!user) {
-      this.showToast('Silakan login terlebih dahulu untuk mengajukan retur.', 'info');
+      this.showToast('Login dulu sebelum mengajukan retur.', 'info');
       return;
     }
 
@@ -1195,7 +1301,7 @@ class FozzApp {
     const checkUnboxing = document.getElementById('check-unboxing').checked;
 
     if (!orderId || !prodVal) {
-      this.showToast('Pilih nomor pesanan dan artikel yang ingin diajukan retur!', 'info');
+      this.showToast('Pilih nomor order dan artikel yang mau diretur!', 'info');
       return;
     }
 
@@ -1205,7 +1311,7 @@ class FozzApp {
     }
 
     if (!checkHangtag || !checkUnboxing) {
-      this.showToast('Anda wajib mengonfirmasi seluruh syarat kondisi produk & video unboxing.', 'info');
+      this.showToast('Centang konfirmasi kondisi produk & unboxing video tanpa jeda!', 'info');
       return;
     }
 
@@ -1225,7 +1331,7 @@ class FozzApp {
       photo_url: photoUrl || undefined
     });
 
-    this.showToast(`Tiket RMA #${newTicket.id} berhasil diterbitkan! Tim QA FOZZ akan meninjau dalam 1x24 jam.`, 'success');
+    this.showToast(`Tiket RMA #${newTicket.id} aktif. Tim QA FOZZ akan mengaudit dalam 1x24 jam.`, 'success');
     document.getElementById('return-reason').value = '';
     document.getElementById('return-photo-url').value = '';
     document.getElementById('check-hangtag').checked = false;
@@ -1249,7 +1355,7 @@ class FozzApp {
       container.innerHTML = `
         <div style="text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); font-size: 0.85rem; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); background: var(--bg-card);">
           <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">📦</div>
-          Belum ada riwayat pengajuan retur aktif.<br>Jika produk Anda mengalami kendala ukuran atau cacat jahitan, silakan isi formulir di samping.
+          Belum ada tiket retur aktif.<br>Fitting kurang pas atau ada cacat jahitan? Kirim form di samping.
         </div>
       `;
       return;
@@ -1257,13 +1363,13 @@ class FozzApp {
 
     container.innerHTML = returns.map(item => {
       const dateStr = new Date(item.created_at).toLocaleDateString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-      const typeLabel = item.request_type === 'exchange_size' ? 'Tukar Ukuran' : (item.request_type === 'defect_refund' ? 'Cacat Produksi' : 'Salah Kirim');
+      const typeLabel = item.request_type === 'exchange_size' ? 'Tukar Size' : (item.request_type === 'defect_refund' ? 'Cacat Jahitan/Bahan' : 'Salah Kirim Artikel');
 
       let statusBadge = '';
-      if (item.status === 'submitted') statusBadge = '<span class="status-pill status-pending">Menunggu Review QA</span>';
+      if (item.status === 'submitted') statusBadge = '<span class="status-pill status-pending">Menunggu Audit QA</span>';
       else if (item.status === 'approved') statusBadge = '<span class="status-pill status-paid">Disetujui QA</span>';
-      else if (item.status === 'rejected') statusBadge = '<span class="status-pill status-canceled">Ditolak</span>';
-      else if (item.status === 'completed') statusBadge = '<span class="status-pill status-delivered">Selesai (Completed)</span>';
+      else if (item.status === 'rejected') statusBadge = '<span class="status-pill status-canceled">Ditolak QA</span>';
+      else if (item.status === 'completed') statusBadge = '<span class="status-pill status-delivered">Selesai (Resolved)</span>';
       else statusBadge = `<span class="status-pill">${item.status}</span>`;
 
       const isStep1Done = true;
@@ -1302,7 +1408,7 @@ class FozzApp {
             </div>
             <div class="rma-timeline-step ${isStep2Done ? 'completed' : (item.status === 'submitted' ? 'active' : '')}">
               <div class="rma-timeline-dot">2</div>
-              <span class="rma-timeline-label">Review QA</span>
+              <span class="rma-timeline-label">Audit QA</span>
             </div>
             <div class="rma-timeline-step ${isStep3Done ? 'completed' : (item.status === 'approved' ? 'active' : '')}">
               <div class="rma-timeline-dot">3</div>
@@ -1316,10 +1422,10 @@ class FozzApp {
 
           <!-- QA Feedback / Tracking Notes -->
           <div style="font-size: 0.75rem; background: var(--bg-subtle); border-left: 3px solid var(--accent-red); padding: 0.5rem 0.75rem; margin-top: 0.75rem;">
-            <strong>Catatan QA HQ:</strong> ${item.admin_note || 'Sedang dalam antrean review spesifikasi.'}
+            <strong>Catatan Tim QA HQ:</strong> ${item.admin_note || 'Masuk antrean audit spesifikasi.'}
             ${item.replacement_tracking_no ? `
               <div style="margin-top: 0.25rem;">
-                Resi Unit Pengganti: <strong class="mono-text" style="color: var(--accent-blue);">${item.replacement_tracking_no}</strong>
+                Resi Unit Baru: <strong class="mono-text" style="color: var(--accent-blue);">${item.replacement_tracking_no}</strong>
               </div>
             ` : ''}
           </div>
@@ -1335,7 +1441,7 @@ class FozzApp {
 
   refreshReturnsData() {
     this.renderReturnsPage();
-    this.showToast('Data tiket retur dan stok ukuran telah disinkronkan!', 'info');
+    this.showToast('Data tiket RMA dan stok size berhasil disinkronkan.', 'info');
   }
 
   toggleFaq(element) {
@@ -1345,7 +1451,7 @@ class FozzApp {
   copyHubAddress() {
     const text = "FOZZ.CO DISTRIBUTION CENTER & RMA HUB\nGedung Urban Streetwear Pavilion Lt. 3\nJl. Senopati No. 42, RT 06 / RW 02, Kebayoran Baru, Jakarta Selatan 12190\nUP: Tim Quality Assurance RMA (+62 811-3699-2273)";
     navigator.clipboard.writeText(text).then(() => {
-      this.showToast('Alamat Hub Logistik FOZZ berhasil disalin ke clipboard!', 'success');
+      this.showToast('Alamat Hub Logistik disalin ke clipboard!', 'success');
     }).catch(() => {
       this.showToast('Alamat: Jl. Senopati No. 42, Kebayoran Baru, Jakarta Selatan 12190', 'info');
     });
@@ -1368,7 +1474,7 @@ class FozzApp {
     const returns = DB.getReturns();
 
     if (returns.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Tidak ada tiket permohonan retur aktif saat ini.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Nol tiket RMA aktif saat ini.</td></tr>`;
       return;
     }
 
@@ -1396,7 +1502,7 @@ class FozzApp {
           </td>
           <td style="max-width: 200px;">
             <span class="role-bar-badge" style="font-size: 0.68rem; margin-bottom: 0.35rem;">
-              ${item.request_type === 'exchange_size' ? 'Tukar Ukuran' : (item.request_type === 'defect_refund' ? 'Cacat Produksi' : 'Salah Kirim')}
+              ${item.request_type === 'exchange_size' ? 'Tukar Size' : (item.request_type === 'defect_refund' ? 'Cacat Jahitan/Bahan' : 'Salah Kirim Artikel')}
             </span>
             <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
               "${item.reason}"
@@ -1404,17 +1510,17 @@ class FozzApp {
           </td>
           <td>
             <select style="font-size: 0.78rem; padding: 0.35rem 0.6rem;" onchange="app.adminChangeReturnStatus('${item.id}', this.value)">
-              <option value="submitted" ${item.status === 'submitted' ? 'selected' : ''}>Submitted (Review QA)</option>
-              <option value="approved" ${item.status === 'approved' ? 'selected' : ''}>Approved (Disetujui)</option>
+              <option value="submitted" ${item.status === 'submitted' ? 'selected' : ''}>Submitted (Audit QA)</option>
+              <option value="approved" ${item.status === 'approved' ? 'selected' : ''}>Approved (Lolos Audit)</option>
               <option value="rejected" ${item.status === 'rejected' ? 'selected' : ''}>Rejected (Ditolak)</option>
-              <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed (Selesai)</option>
+              <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed (Resolved)</option>
             </select>
           </td>
           <td>
             <input type="text" 
                    id="admin-return-note-${item.id}" 
                    value="${item.admin_note || ''}" 
-                   placeholder="Catatan QA untuk pembeli"
+                   placeholder="Catatan QA untuk buyer"
                    style="font-size: 0.75rem; padding: 0.35rem 0.5rem; width: 170px;"
                    onchange="app.adminSaveReturnNote('${item.id}', this.value)">
           </td>
@@ -1426,7 +1532,7 @@ class FozzApp {
                      placeholder="Resi Unit Baru"
                      class="mono-text"
                      style="font-size: 0.75rem; padding: 0.35rem 0.5rem; width: 130px;">
-              <button class="role-btn" onclick="app.adminSaveReturnTracking('${item.id}')">Kirim Resi</button>
+              <button class="role-btn" onclick="app.adminSaveReturnTracking('${item.id}')">Kunci Resi</button>
             </div>
           </td>
         </tr>
@@ -1437,12 +1543,12 @@ class FozzApp {
   adminChangeReturnStatus(returnId, newStatus) {
     DB.updateReturnStatus(returnId, newStatus);
     this.renderAdminReturns();
-    this.showToast(`Status tiket RMA #${returnId} diubah menjadi "${newStatus}"`, 'success');
+    this.showToast(`Status tiket RMA #${returnId} diubah jadi "${newStatus}".`, 'success');
   }
 
   adminSaveReturnNote(returnId, note) {
     DB.updateReturnStatus(returnId, null, note);
-    this.showToast(`Catatan QA untuk RMA #${returnId} berhasil disimpan!`, 'info');
+    this.showToast(`Catatan QA untuk RMA #${returnId} tersimpan!`, 'info');
   }
 
   adminSaveReturnTracking(returnId) {
@@ -1451,13 +1557,22 @@ class FozzApp {
       const tracking = input.value.trim();
       DB.updateReturnStatus(returnId, 'completed', 'Unit baru telah dikirimkan ke alamat Anda.', tracking);
       this.renderAdminReturns();
-      this.showToast(`Resi unit baru ${tracking} berhasil dialokasikan & RMA diselesaikan!`, 'success');
+      this.showToast(`Resi unit baru ${tracking} terpasang & tiket RMA diselesaikan!`, 'success');
     }
   }
 }
 
 // Global Application Instance
-let app;
-window.addEventListener('DOMContentLoaded', () => {
-  app = new FozzApp();
-});
+window.app = null;
+function initFozzApp() {
+  if (!window.app) {
+    window.app = new FozzApp();
+  }
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initFozzApp);
+} else {
+  initFozzApp();
+}
+

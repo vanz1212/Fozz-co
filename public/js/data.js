@@ -204,12 +204,12 @@ const SEED_RETURNS = [
     current_size: "L",
     request_type: "exchange_size", // 'exchange_size' | 'defect_refund' | 'wrong_item'
     target_size: "M",
-    reason: "Fitting Size L agak terlalu longgar di bahu. Ingin ditukar ke Size M.",
+    reason: "Siluet bahu Size L terlalu drop. Minta tukar ke Size M.",
     condition_confirmed: true,
     video_unboxing_confirmed: true,
     photo_url: "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&w=400&q=80",
     status: "approved", // 'submitted' | 'approved' | 'rejected' | 'completed'
-    admin_note: "Disetujui QA. Unit Size M telah disisihkan di stok. Kirim ke FOZZ Return Hub.",
+    admin_note: "Lolos audit QA. Slot Size M sudah di-lock di warehouse. Kirim unit lama ke Hub Logistik FOZZ.",
     return_tracking_no: "RET-JNT-4401928",
     replacement_tracking_no: "JP-9944112200",
     created_at: "2026-10-18T10:15:00Z"
