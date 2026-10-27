@@ -24,6 +24,7 @@ class FozzApp {
     this.updateCartBadges();
     this.updateWishlistBadges();
     this.initAdminViews();
+    this.initHeroPatternAnimation();
   }
 
   // Theme Management (Default: Ramah & Hangat / Friendly Warm Light)
@@ -110,7 +111,8 @@ class FozzApp {
     const hash = window.location.hash;
     if (hash === '#admin' || hash === '#/admin' || window.location.pathname === '/admin') {
       const user = DB.getCurrentUser();
-      if (user && user.role === 'admin') {
+      const isAdminAuthenticated = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+      if (user && user.role === 'admin' && isAdminAuthenticated) {
         this.showAdminView();
       } else {
         this.showCustomerView();
@@ -124,7 +126,8 @@ class FozzApp {
   requestAdminAccess(event) {
     if (event) event.preventDefault();
     const user = DB.getCurrentUser();
-    if (user && user.role === 'admin') {
+    const isAdminAuthenticated = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+    if (user && user.role === 'admin' && isAdminAuthenticated) {
       window.location.hash = '#admin';
       this.showAdminView();
     } else {
@@ -138,7 +141,41 @@ class FozzApp {
       errorEl.style.display = 'none';
       errorEl.textContent = '';
     }
+    const emailInput = document.getElementById('admin-login-email');
+    const passInput = document.getElementById('admin-login-password');
+    if (passInput) passInput.value = '';
+
+    const passToggleIcon = document.getElementById('admin-pass-toggle-icon');
+    const passToggleText = document.getElementById('admin-pass-toggle-text');
+    if (passInput) passInput.type = 'password';
+    if (passToggleIcon) passToggleIcon.textContent = '👁️';
+    if (passToggleText) passToggleText.textContent = 'Lihat';
+
     this.openModal('admin-login-modal');
+    setTimeout(() => {
+      if (emailInput && !emailInput.value) {
+        emailInput.focus();
+      } else if (passInput) {
+        passInput.focus();
+      }
+    }, 120);
+  }
+
+  toggleAdminPasswordVisibility() {
+    const passInput = document.getElementById('admin-login-password');
+    const passToggleIcon = document.getElementById('admin-pass-toggle-icon');
+    const passToggleText = document.getElementById('admin-pass-toggle-text');
+    if (!passInput) return;
+
+    if (passInput.type === 'password') {
+      passInput.type = 'text';
+      if (passToggleIcon) passToggleIcon.textContent = '🙈';
+      if (passToggleText) passToggleText.textContent = 'Sembunyikan';
+    } else {
+      passInput.type = 'password';
+      if (passToggleIcon) passToggleIcon.textContent = '👁️';
+      if (passToggleText) passToggleText.textContent = 'Lihat';
+    }
   }
 
   fillDemoAdminCreds() {
@@ -147,38 +184,106 @@ class FozzApp {
     const errorEl = document.getElementById('admin-login-error');
     if (emailInput) emailInput.value = 'admin@fozz.co';
     if (passInput) passInput.value = 'admin123';
-    if (errorEl) errorEl.style.display = 'none';
+    if (errorEl) {
+      errorEl.style.display = 'none';
+      errorEl.textContent = '';
+    }
+    this.showToast('Kredensial demo terisi (admin@fozz.co / admin123). Klik Autentikasi untuk masuk.', 'info');
   }
 
   handleAdminLogin(event) {
     event.preventDefault();
-    const email = document.getElementById('admin-login-email').value.trim();
+    const emailInput = document.getElementById('admin-login-email');
+    const passwordInput = document.getElementById('admin-login-password');
     const errorEl = document.getElementById('admin-login-error');
 
-    const adminUser = DB.getUsers().find(u => u.email.toLowerCase() === email.toLowerCase());
+    const email = emailInput ? emailInput.value.trim() : '';
+    const password = passwordInput ? passwordInput.value : '';
 
-    if (adminUser && adminUser.role === 'admin') {
-      DB.setCurrentUser(adminUser);
-      this.closeModal('admin-login-modal');
-      window.location.hash = '#admin';
-      this.showAdminView();
-      this.showToast('Autentikasi Berhasil. Selamat datang di HQ Control.', 'success');
-      if (errorEl) errorEl.style.display = 'none';
-    } else {
+    if (!email) {
       if (errorEl) {
-        errorEl.textContent = 'Akses Ditolak: Kredensial tidak valid atau akun Anda tidak memiliki hak akses administrator.';
+        errorEl.textContent = 'Silakan masukkan alamat email administrator.';
         errorEl.style.display = 'block';
       }
-      this.showToast('Kredensial Admin Salah atau Tidak Memiliki Izin.', 'info');
+      if (emailInput) emailInput.focus();
+      return;
     }
+
+    if (!password) {
+      if (errorEl) {
+        errorEl.textContent = 'Silakan masukkan kata sandi (password) administrator.';
+        errorEl.style.display = 'block';
+      }
+      if (passwordInput) passwordInput.focus();
+      return;
+    }
+
+    const users = DB.getUsers();
+    const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+    // 1. Cek apakah user ada dan memiliki peran admin
+    if (!targetUser || targetUser.role !== 'admin') {
+      if (errorEl) {
+        errorEl.innerHTML = `
+          <strong>Akses Ditolak:</strong> Akun dengan email <code>${email}</code> tidak terdaftar sebagai administrator sistem FOZZ HQ.
+        `;
+        errorEl.style.display = 'block';
+      }
+      if (emailInput) emailInput.focus();
+      this.showToast('Akun bukan administrator atau tidak ditemukan.', 'info');
+      return;
+    }
+
+    // 2. Verifikasi Password Admin (admin123 atau field password yang tersimpan)
+    const isPasswordCorrect = (password === 'admin123') || (targetUser.password && targetUser.password === password);
+
+    if (!isPasswordCorrect) {
+      if (errorEl) {
+        errorEl.innerHTML = `
+          <strong>Password Salah:</strong> Kata sandi yang Anda masukkan tidak sesuai untuk akun <code>${email}</code>. Silakan periksa kembali.
+        `;
+        errorEl.style.display = 'block';
+      }
+      if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.focus();
+      }
+      this.showToast('Password administrator salah!', 'info');
+      return;
+    }
+
+    // 3. Autentikasi Berhasil
+    sessionStorage.setItem('fozz_admin_authenticated', 'true');
+    DB.setCurrentUser(targetUser);
+
+    if (errorEl) {
+      errorEl.style.display = 'none';
+      errorEl.textContent = '';
+    }
+    if (passwordInput) passwordInput.value = '';
+
+    this.closeModal('admin-login-modal');
+    window.location.hash = '#admin';
+    this.showAdminView();
+    this.showToast(`Autentikasi Berhasil. Selamat datang di HQ Control, ${targetUser.nama_lengkap}!`, 'success');
   }
 
   showAdminView() {
+    const isAdminAuthenticated = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+    const currentUser = DB.getCurrentUser();
+
+    // Guard: Wajib terautentikasi dan memiliki role admin
+    if (!isAdminAuthenticated || !currentUser || currentUser.role !== 'admin') {
+      this.showCustomerView();
+      this.openAdminLoginModal();
+      this.showToast('Autentikasi login admin diperlukan sebelum membuka panel CMS.', 'info');
+      return;
+    }
+
     this.currentRole = 'admin';
     const custView = document.getElementById('customer-view');
     const adminView = document.getElementById('admin-view');
     const adminUserDisplay = document.getElementById('admin-user-display');
-    const currentUser = DB.getCurrentUser();
 
     if (custView) custView.style.display = 'none';
     if (adminView) adminView.style.display = 'block';
@@ -202,6 +307,7 @@ class FozzApp {
   }
 
   logoutAdmin() {
+    sessionStorage.removeItem('fozz_admin_authenticated');
     const customerUser = DB.getUsers().find(u => u.role === 'customer') || SEED_USERS[1];
     DB.setCurrentUser(customerUser);
 
@@ -211,7 +317,7 @@ class FozzApp {
 
     this.showCustomerView();
     this.renderCatalog();
-    this.showToast('Sesi Admin HQ ditutup. Kembali ke Storefront.', 'info');
+    this.showToast('Sesi Admin HQ ditutup. Berhasil logout.', 'info');
   }
 
   // Switch between Customer Storefront and HQ Portal Admin (CMS)
@@ -1545,6 +1651,13 @@ class FozzApp {
   closeModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.remove('open');
+    if (modalId === 'admin-login-modal') {
+      const isAdminAuth = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+      if (!isAdminAuth && (window.location.hash === '#admin' || window.location.hash === '#/admin')) {
+        history.pushState(null, document.title, window.location.pathname + window.location.search);
+        this.showCustomerView();
+      }
+    }
   }
 
   openSchemaModal(tab = 'gateway') {
@@ -1560,6 +1673,10 @@ class FozzApp {
       if (btn) btn.classList.toggle('active', t === tabName);
       if (content) content.style.display = t === tabName ? 'block' : 'none';
     });
+  }
+
+  openSizeGuideModal() {
+    this.openModal('size-guide-modal');
   }
 
   navigateTo(section, params = {}) {
@@ -1587,6 +1704,11 @@ class FozzApp {
         setTimeout(() => {
           const rmaCard = document.getElementById('rma-portal-card');
           if (rmaCard) rmaCard.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } else if (params.scrollToFaq) {
+        setTimeout(() => {
+          const faqList = document.querySelector('.faq-list');
+          if (faqList) faqList.scrollIntoView({ behavior: 'smooth' });
         }, 100);
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1975,42 +2097,456 @@ class FozzApp {
     }
   }
 
-  // --- HERO SHOWCASE VIDEO CONTROLS ---
-  toggleHeroVideoMute() {
-    const vid = document.getElementById('hero-video');
-    const icon = document.getElementById('hero-video-mute-icon');
-    const text = document.getElementById('hero-video-mute-text');
-    if (!vid) return;
+  // --- HERO KINETIC PATTERN SHOWCASE ANIMATION ENGINE ---
+  initHeroPatternAnimation() {
+    const canvas = document.getElementById('hero-pattern-canvas');
+    if (!canvas) return;
 
-    vid.muted = !vid.muted;
-    if (icon && text) {
-      icon.textContent = vid.muted ? '🔇' : '🔊';
-      text.textContent = vid.muted ? 'UNMUTE' : 'MUTE';
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    this.patternModes = [
+      'TOPOGRAPHIC CONTOUR MESH',
+      'CYBER ISOMETRIC GRID & RADAR',
+      'BRUTALIST KINETIC HATCH & GLYPHS',
+      'QUANTUM MATRIX VORTEX'
+    ];
+    this.currentPatternMode = 0;
+    this.patternSpeedMultiplier = 1.0;
+
+    let width = 0;
+    let height = 0;
+    let dpr = window.devicePixelRatio || 1;
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      if (width === 0 || height === 0) return;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Mouse tracking for interactive physics
+    const mouse = { x: -1000, y: -1000, targetX: -1000, targetY: -1000, active: false };
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.targetX = e.clientX - rect.left;
+      mouse.targetY = e.clientY - rect.top;
+      mouse.active = true;
+    });
+    canvas.addEventListener('mouseleave', () => {
+      mouse.active = false;
+      mouse.targetX = -1000;
+      mouse.targetY = -1000;
+    });
+
+    // Touch support for mobile devices
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches[0]) {
+        const rect = canvas.getBoundingClientRect();
+        mouse.targetX = e.touches[0].clientX - rect.left;
+        mouse.targetY = e.touches[0].clientY - rect.top;
+        mouse.active = true;
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchend', () => {
+      mouse.active = false;
+      mouse.targetX = -1000;
+      mouse.targetY = -1000;
+    });
+
+    // Particles data for Mode 2 & Mode 3
+    const glyphSymbols = ['+', '✕', '▪', '▲', 'FOZZ', 'AW26', '480GSM', 'SYSTEM', '01'];
+    const glyphNodes = Array.from({ length: 24 }, () => ({
+      x: Math.random() * 1000,
+      y: Math.random() * 500,
+      vx: (Math.random() - 0.5) * 0.9,
+      vy: (Math.random() - 0.5) * 0.9,
+      symbol: glyphSymbols[Math.floor(Math.random() * glyphSymbols.length)],
+      size: 9 + Math.random() * 4,
+      rot: Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 0.02
+    }));
+
+    const quantumParticles = Array.from({ length: 65 }, () => ({
+      angle: Math.random() * Math.PI * 2,
+      radius: 40 + Math.random() * 260,
+      speed: 0.006 + Math.random() * 0.012,
+      size: 1.5 + Math.random() * 2.5,
+      z: Math.random()
+    }));
+
+    let radarAngle = 0;
+    let time = 0;
+    let lastTime = performance.now();
+    let isVisible = true;
+
+    // IntersectionObserver to avoid rendering when scrolled away
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        isVisible = entry.isIntersecting;
+      });
+    }, { threshold: 0.05 });
+    observer.observe(canvas);
+
+    // Frame rate indicator counter
+    let frameCount = 0;
+    let lastFpsUpdate = performance.now();
+    const fpsLabel = document.getElementById('pattern-fps-label');
+
+    const render = (now) => {
+      requestAnimationFrame(render);
+      if (!isVisible || width === 0 || height === 0) return;
+
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+      time += dt * this.patternSpeedMultiplier;
+
+      // Update FPS label every second
+      frameCount++;
+      if (now - lastFpsUpdate >= 1000) {
+        const fps = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
+        if (fpsLabel) fpsLabel.textContent = `${fps} FPS`;
+        frameCount = 0;
+        lastFpsUpdate = now;
+      }
+
+      // Smooth mouse interpolation
+      if (mouse.active) {
+        mouse.x += (mouse.targetX - mouse.x) * 0.15;
+        mouse.y += (mouse.targetY - mouse.y) * 0.15;
+      } else {
+        mouse.x = -1000;
+        mouse.y = -1000;
+      }
+
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      const accentRed = isDark ? '#ff3b53' : '#ff2a40';
+      const bgFill = isDark ? '#07080c' : '#f8f6f0';
+      const baseLineColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(10, 12, 16, 0.08)';
+      const midLineColor = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(10, 12, 16, 0.18)';
+      const textColor = isDark ? 'rgba(255, 255, 255, 0.65)' : 'rgba(10, 12, 16, 0.65)';
+
+      // Clear canvas with subtle background
+      ctx.fillStyle = bgFill;
+      ctx.fillRect(0, 0, width, height);
+
+      // Render based on current pattern mode
+      switch (this.currentPatternMode) {
+        case 0:
+          // MODE 0: TOPOGRAPHIC CONTOUR MESH
+          this.renderTopographicMesh(ctx, width, height, time, mouse, isDark, accentRed, baseLineColor, midLineColor);
+          break;
+        case 1:
+          // MODE 1: CYBER ISOMETRIC GRID & RADAR
+          this.renderIsometricRadar(ctx, width, height, time, radarAngle, mouse, isDark, accentRed, baseLineColor, midLineColor, textColor);
+          radarAngle += 0.025 * this.patternSpeedMultiplier;
+          break;
+        case 2:
+          // MODE 2: BRUTALIST KINETIC HATCH & GLYPHS
+          this.renderBrutalistHatch(ctx, width, height, time, glyphNodes, mouse, isDark, accentRed, baseLineColor, midLineColor);
+          break;
+        case 3:
+          // MODE 3: QUANTUM MATRIX VORTEX
+          this.renderQuantumVortex(ctx, width, height, time, quantumParticles, mouse, isDark, accentRed, baseLineColor);
+          break;
+      }
+    };
+
+    requestAnimationFrame(render);
+  }
+
+  // --- RENDERING SUB-ROUTINES ---
+  renderTopographicMesh(ctx, width, height, time, mouse, isDark, accentRed, baseLineColor, midLineColor) {
+    const numLines = 16;
+    const stepX = 14;
+    const spacingY = height / (numLines + 1);
+
+    for (let i = 1; i <= numLines; i++) {
+      const baseY = i * spacingY;
+      const isKeyLine = (i % 4 === 0);
+      const isRedLine = (i === 4 || i === 12);
+
+      ctx.beginPath();
+      ctx.lineWidth = isRedLine ? 2 : (isKeyLine ? 1.5 : 1);
+      ctx.strokeStyle = isRedLine ? accentRed : (isKeyLine ? midLineColor : baseLineColor);
+
+      if (isRedLine) {
+        ctx.shadowColor = accentRed;
+        ctx.shadowBlur = 10;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      let started = false;
+      for (let x = 0; x <= width + stepX; x += stepX) {
+        const wave1 = Math.sin(x * 0.007 + time * 0.8 + i * 0.35) * 22;
+        const wave2 = Math.cos(x * 0.015 - time * 0.5 + i * 0.5) * 14;
+        const wave3 = Math.sin(x * 0.003 + i * 0.7) * 18;
+
+        let y = baseY + wave1 + wave2 + wave3;
+
+        // Interactive mouse distortion
+        if (mouse.x > -500) {
+          const dx = x - mouse.x;
+          const dy = y - mouse.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 180) {
+            const force = (1 - dist / 180) * 45;
+            y += (dy > 0 ? force : -force);
+          }
+        }
+
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+
+        // Elevation tag
+        if (isRedLine && Math.abs(x - width * 0.78) < stepX) {
+          ctx.fillStyle = accentRed;
+          ctx.font = '700 9px "JetBrains Mono", monospace';
+          ctx.fillText(`+${i * 30}M // 480GSM`, x, y - 6);
+        }
+      }
+      ctx.stroke();
     }
-    this.showToast(vid.muted ? 'Audio Runway dibisukan' : 'Audio Runway diaktifkan', 'info');
+    ctx.shadowBlur = 0;
+  }
+
+  renderIsometricRadar(ctx, width, height, time, radarAngle, mouse, isDark, accentRed, baseLineColor, midLineColor, textColor) {
+    const cx = width / 2;
+    const cy = height / 2;
+
+    // Moving diagonal perspective grid
+    const gridSize = 45;
+    const offset = (time * 28) % gridSize;
+
+    ctx.strokeStyle = baseLineColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = -gridSize; x <= width + gridSize; x += gridSize) {
+      ctx.moveTo(x + offset, 0);
+      ctx.lineTo(x + offset - height * 0.5, height);
+    }
+    for (let y = 0; y <= height; y += gridSize) {
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+    }
+    ctx.stroke();
+
+    // Concentric Technical Circles
+    const radii = [60, 110, 170, 230];
+    radii.forEach((r, idx) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = (idx === 2) ? midLineColor : baseLineColor;
+      ctx.lineWidth = (idx === 2) ? 1.5 : 1;
+      if (idx === 1) ctx.setLineDash([4, 6]);
+      else ctx.setLineDash([]);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // Rotating Radar Sweep Beam
+    const sweepLength = 230;
+    const sweepEnd = {
+      x: cx + Math.cos(radarAngle) * sweepLength,
+      y: cy + Math.sin(radarAngle) * sweepLength
+    };
+
+    // Draw radar beam line
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(sweepEnd.x, sweepEnd.y);
+    ctx.strokeStyle = accentRed;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = accentRed;
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Radar cone trail
+    const trailSegments = 8;
+    for (let i = 1; i <= trailSegments; i++) {
+      const trailAngle = radarAngle - (i * 0.04);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(trailAngle) * sweepLength, cy + Math.sin(trailAngle) * sweepLength);
+      ctx.strokeStyle = isDark ? `rgba(255, 59, 83, ${0.35 - (i / trailSegments) * 0.35})` : `rgba(255, 42, 64, ${0.25 - (i / trailSegments) * 0.25})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Interactive crosshair if mouse inside
+    if (mouse.x > -500) {
+      ctx.strokeStyle = accentRed;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mouse.x - 16, mouse.y);
+      ctx.lineTo(mouse.x + 16, mouse.y);
+      ctx.moveTo(mouse.x, mouse.y - 16);
+      ctx.lineTo(mouse.x, mouse.y + 16);
+      ctx.stroke();
+
+      ctx.fillStyle = textColor;
+      ctx.font = '600 9px "JetBrains Mono", monospace';
+      ctx.fillText(`LOC [${Math.round(mouse.x)}, ${Math.round(mouse.y)}]`, mouse.x + 12, mouse.y - 10);
+    }
+  }
+
+  renderBrutalistHatch(ctx, width, height, time, glyphNodes, mouse, isDark, accentRed, baseLineColor, midLineColor) {
+    // Background moving 45-degree hatch stripes
+    const hatchStep = 32;
+    const hatchOffset = (time * 24) % hatchStep;
+    ctx.strokeStyle = baseLineColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = -height; x <= width + height; x += hatchStep) {
+      ctx.moveTo(x + hatchOffset, 0);
+      ctx.lineTo(x + hatchOffset + height, height);
+    }
+    ctx.stroke();
+
+    // Floating glyph symbols and connecting constellation
+    glyphNodes.forEach((node, i) => {
+      node.x += node.vx * this.patternSpeedMultiplier;
+      node.y += node.vy * this.patternSpeedMultiplier;
+      node.rot += node.vrot;
+
+      // Wrap around bounds
+      if (node.x < -40) node.x = width + 40;
+      if (node.x > width + 40) node.x = -40;
+      if (node.y < -40) node.y = height + 40;
+      if (node.y > height + 40) node.y = -40;
+
+      // Mouse repulsion
+      if (mouse.x > -500) {
+        const dx = node.x - mouse.x;
+        const dy = node.y - mouse.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 120) {
+          node.x += (dx / d) * 3;
+          node.y += (dy / d) * 3;
+        }
+      }
+
+      // Constellation lines to nearby neighbors
+      for (let j = i + 1; j < glyphNodes.length; j++) {
+        const other = glyphNodes[j];
+        const dx = node.x - other.x;
+        const dy = node.y - other.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 130) {
+          const alpha = 1 - dist / 130;
+          ctx.strokeStyle = isDark ? `rgba(255, 255, 255, ${alpha * 0.18})` : `rgba(10, 12, 16, ${alpha * 0.18})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(node.x, node.y);
+          ctx.lineTo(other.x, other.y);
+          ctx.stroke();
+        }
+      }
+
+      // Render Glyph Symbol
+      ctx.save();
+      ctx.translate(node.x, node.y);
+      ctx.rotate(node.rot);
+      ctx.font = `800 ${node.size}px "JetBrains Mono", monospace`;
+      ctx.fillStyle = (i % 3 === 0) ? accentRed : (isDark ? '#e2e8f0' : '#0a0c10');
+      if (i % 3 === 0) {
+        ctx.shadowColor = accentRed;
+        ctx.shadowBlur = 8;
+      }
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.symbol, 0, 0);
+      ctx.restore();
+    });
+  }
+
+  renderQuantumVortex(ctx, width, height, time, particles, mouse, isDark, accentRed, baseLineColor) {
+    const cx = (mouse.x > -500) ? (width / 2 + (mouse.x - width / 2) * 0.4) : width / 2;
+    const cy = (mouse.y > -500) ? (height / 2 + (mouse.y - height / 2) * 0.4) : height / 2;
+
+    // Draw concentric orbital paths
+    ctx.strokeStyle = baseLineColor;
+    ctx.lineWidth = 1;
+    [70, 140, 210].forEach(r => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    particles.forEach((p, idx) => {
+      p.angle += p.speed * this.patternSpeedMultiplier;
+      const x = cx + Math.cos(p.angle) * p.radius;
+      const y = cy + Math.sin(p.angle) * p.radius * 0.65;
+
+      // Draw particle
+      ctx.beginPath();
+      ctx.arc(x, y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = (idx % 2 === 0) ? accentRed : (isDark ? '#ffffff' : '#0a0c10');
+      if (idx % 2 === 0) {
+        ctx.shadowColor = accentRed;
+        ctx.shadowBlur = 10;
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Particle speed trail
+      ctx.beginPath();
+      const prevX = cx + Math.cos(p.angle - 0.08) * p.radius;
+      const prevY = cy + Math.sin(p.angle - 0.08) * p.radius * 0.65;
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = isDark ? 'rgba(255, 59, 83, 0.3)' : 'rgba(255, 42, 64, 0.25)';
+      ctx.lineWidth = p.size * 0.8;
+      ctx.stroke();
+    });
+  }
+
+  // --- INTERACTIVE CONTROLS ---
+  cycleHeroPattern() {
+    if (!this.patternModes) return;
+    this.currentPatternMode = (this.currentPatternMode + 1) % this.patternModes.length;
+    const modeName = this.patternModes[this.currentPatternMode];
+    const titleEl = document.getElementById('pattern-mode-title');
+    if (titleEl) {
+      titleEl.textContent = modeName;
+    }
+    this.showToast(`Corak Kinetik: ${modeName}`, 'info');
+  }
+
+  toggleHeroPatternSpeed() {
+    if (this.patternSpeedMultiplier === 1.0) {
+      this.patternSpeedMultiplier = 1.5;
+    } else if (this.patternSpeedMultiplier === 1.5) {
+      this.patternSpeedMultiplier = 2.0;
+    } else {
+      this.patternSpeedMultiplier = 1.0;
+    }
+    const textEl = document.getElementById('pattern-speed-text');
+    if (textEl) {
+      textEl.textContent = `${this.patternSpeedMultiplier.toFixed(1)}X`;
+    }
+    this.showToast(`Kecepatan Animasi: ${this.patternSpeedMultiplier.toFixed(1)}X`, 'info');
+  }
+
+  // Backward-compatible stubs in case legacy calls exist
+  toggleHeroVideoMute() {
+    this.cycleHeroPattern();
   }
 
   toggleHeroVideoPlay() {
-    const vid = document.getElementById('hero-video');
-    const icon = document.getElementById('hero-video-play-icon');
-    const text = document.getElementById('hero-video-play-text');
-    if (!vid) return;
-
-    if (vid.paused) {
-      vid.play();
-      if (icon && text) {
-        icon.textContent = '⏸️';
-        text.textContent = 'PAUSE';
-      }
-      this.showToast('Memutar Runway Motion Reel', 'info');
-    } else {
-      vid.pause();
-      if (icon && text) {
-        icon.textContent = '▶';
-        text.textContent = 'PLAY';
-      }
-      this.showToast('Runway Motion Reel dijeda', 'info');
-    }
+    this.toggleHeroPatternSpeed();
   }
 }
 

@@ -21,6 +21,7 @@ const SEED_USERS = [
     id: "usr-admin-001",
     nama_lengkap: "Fozz System Master",
     email: "admin@fozz.co",
+    password: "admin123",
     password_hash: "$2b$12$e9g0W.w6R3J6G2Z/JFOZZHQSecretMasterHashArgon2",
     role: "admin",
     no_telepon: "+62 811-9988-7711",
