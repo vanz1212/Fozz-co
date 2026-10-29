@@ -25,6 +25,19 @@ class FozzApp {
     this.updateWishlistBadges();
     this.initAdminViews();
     this.initHeroPatternAnimation();
+
+    // Listener Real-time Cloud Sync Supabase
+    window.addEventListener('fozz:data-synced', () => {
+      this.renderCatalog();
+      this.updateCartBadges();
+      this.updateWishlistBadges();
+      if (this.currentRole === 'admin') {
+        this.renderAdminInventory();
+        this.renderAdminOrders();
+        this.renderAdminAnalytics();
+        this.renderAdminReturns();
+      }
+    });
   }
 
   // Theme Management (Default: Ramah & Hangat / Friendly Warm Light)
@@ -1663,6 +1676,18 @@ class FozzApp {
   openSchemaModal(tab = 'gateway') {
     this.openModal('schema-modal');
     this.switchArchTab(tab);
+  }
+
+  copySupabaseSql() {
+    fetch('/supabase_schema.sql')
+      .then(res => res.text())
+      .then(sql => {
+        navigator.clipboard.writeText(sql);
+        this.showToast('Skema SQL (supabase_schema.sql) berhasil disalin ke clipboard!', 'success');
+      })
+      .catch(() => {
+        this.showToast('Buka file supabase_schema.sql di root project untuk melihat skema.', 'info');
+      });
   }
 
   switchArchTab(tabName) {

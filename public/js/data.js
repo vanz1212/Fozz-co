@@ -1,7 +1,14 @@
 /**
- * FOZZ.CO - Database Relational Architecture & Initial Seed Data
- * Sesuai dengan spesifikasi dokumen 'Skema Database fozz.co.pdf'
+ * FOZZ.CO - Database Relational Architecture & Supabase Cloud Integration
+ * Sesuai dengan spesifikasi dokumen 'Skema Database fozz.co.pdf' & 'Sistem Otentikasi & Otorisasi fozz.co.pdf'
  */
+
+// Supabase Cloud Configuration (Client-side Anonymous/Publishable Key)
+const SUPABASE_CONFIG = {
+  url: 'https://omwjweeudimxisqffiki.supabase.co',
+  anonKey: 'sb_publishable_yfQ1c5oLQASAj_8B1VSLYA_DPzHtR1Z',
+  jwksUrl: 'https://omwjweeudimxisqffiki.supabase.co/auth/v1/.well-known/jwks.json'
+};
 
 const STORAGE_KEYS = {
   USERS: 'fozz_users',
@@ -12,7 +19,8 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'fozz_current_user',
   CART: 'fozz_cart',
   WISHLIST: 'fozz_wishlist',
-  RETURNS: 'fozz_returns'
+  RETURNS: 'fozz_returns',
+  SUPABASE_STATUS: 'fozz_supabase_status'
 };
 
 // Initial Seed Users (1 Admin, 2 Customers)
@@ -25,12 +33,14 @@ const SEED_USERS = [
     password_hash: "$2b$12$e9g0W.w6R3J6G2Z/JFOZZHQSecretMasterHashArgon2",
     role: "admin",
     no_telepon: "+62 811-9988-7711",
+    alamat_default: "HQ Operations Jakarta",
     created_at: "2026-01-10T08:00:00Z"
   },
   {
     id: "usr-cust-001",
     nama_lengkap: "Ivan Pratama",
     email: "ivanpratama859@gmail.com",
+    password: "user123",
     password_hash: "$2b$12$K89sP3jL9xX.uGfozzCustomerIvanSecureBcryptHash",
     role: "customer",
     no_telepon: "+62 812-3456-7890",
@@ -41,6 +51,7 @@ const SEED_USERS = [
     id: "usr-cust-002",
     nama_lengkap: "Maya Aurelia",
     email: "maya.aurelia@example.com",
+    password: "user123",
     password_hash: "$2b$12$Y18qM8kJ2vP.aZfozzCustomerMayaSecureBcryptHash",
     role: "customer",
     no_telepon: "+62 857-1122-3344",
@@ -109,36 +120,30 @@ const SEED_PRODUCTS = [
 
 // Initial Seed Product Sizes (Stock Inventory)
 const SEED_PRODUCT_SIZES = [
-  // prod-001 Dark Washed Denim Jacket
   { id: "sz-001-s", product_id: "prod-001", ukuran: "S", stok: 4 },
   { id: "sz-001-m", product_id: "prod-001", ukuran: "M", stok: 8 },
   { id: "sz-001-l", product_id: "prod-001", ukuran: "L", stok: 6 },
   { id: "sz-001-xl", product_id: "prod-001", ukuran: "XL", stok: 2 },
 
-  // prod-002 Heavyweight Boxy Hoodie
   { id: "sz-002-s", product_id: "prod-002", ukuran: "S", stok: 5 },
   { id: "sz-002-m", product_id: "prod-002", ukuran: "M", stok: 12 },
   { id: "sz-002-l", product_id: "prod-002", ukuran: "L", stok: 9 },
   { id: "sz-002-xl", product_id: "prod-002", ukuran: "XL", stok: 3 },
 
-  // prod-003 Tactical Cargo Pants
   { id: "sz-003-28", product_id: "prod-003", ukuran: "28", stok: 3 },
   { id: "sz-003-30", product_id: "prod-003", ukuran: "30", stok: 7 },
   { id: "sz-003-32", product_id: "prod-003", ukuran: "32", stok: 6 },
   { id: "sz-003-34", product_id: "prod-003", ukuran: "34", stok: 1 },
 
-  // prod-004 Cyber Graphic Heavy Tee
   { id: "sz-004-s", product_id: "prod-004", ukuran: "S", stok: 10 },
   { id: "sz-004-m", product_id: "prod-004", ukuran: "M", stok: 18 },
   { id: "sz-004-l", product_id: "prod-004", ukuran: "L", stok: 14 },
   { id: "sz-004-xl", product_id: "prod-004", ukuran: "XL", stok: 5 },
 
-  // prod-005 Technical Nylon Shell Windbreaker
   { id: "sz-005-m", product_id: "prod-005", ukuran: "M", stok: 4 },
   { id: "sz-005-l", product_id: "prod-005", ukuran: "L", stok: 5 },
   { id: "sz-005-xl", product_id: "prod-005", ukuran: "XL", stok: 2 },
 
-  // prod-006 Modular Crossbody Sling Bag
   { id: "sz-006-all", product_id: "prod-006", ukuran: "ALL-SIZE", stok: 15 }
 ];
 
@@ -147,7 +152,7 @@ const SEED_ORDERS = [
   {
     id: "ord-882109",
     user_id: "usr-cust-001",
-    total_harga: 919000, // 899,000 + 20,000 ongkir
+    total_harga: 919000,
     status_pesanan: "Shipped",
     alamat_pengiriman: "Jl. Senopati No. 42, Kebayoran Baru, Jakarta Selatan 12190",
     resi_pengiriman: "JP-88992144701",
@@ -157,7 +162,7 @@ const SEED_ORDERS = [
   {
     id: "ord-774012",
     user_id: "usr-cust-002",
-    total_harga: 998000, // 649,000 + 329,000 + 20,000 ongkir
+    total_harga: 998000,
     status_pesanan: "Paid",
     alamat_pengiriman: "Jl. Dago Asri Blok B7, Coblong, Bandung 40135",
     resi_pengiriman: null,
@@ -203,13 +208,13 @@ const SEED_RETURNS = [
     product_id: "prod-001",
     product_name: "Dark Washed Denim Jacket",
     current_size: "L",
-    request_type: "exchange_size", // 'exchange_size' | 'defect_refund' | 'wrong_item'
+    request_type: "exchange_size",
     target_size: "M",
     reason: "Siluet bahu Size L terlalu drop. Minta tukar ke Size M.",
     condition_confirmed: true,
     video_unboxing_confirmed: true,
     photo_url: "https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&w=400&q=80",
-    status: "approved", // 'submitted' | 'approved' | 'rejected' | 'completed'
+    status: "approved",
     admin_note: "Lolos audit QA. Slot Size M sudah di-lock di warehouse. Kirim unit lama ke Hub Logistik FOZZ.",
     return_tracking_no: "RET-JNT-4401928",
     replacement_tracking_no: "JP-9944112200",
@@ -217,10 +222,18 @@ const SEED_RETURNS = [
   }
 ];
 
-// Database Management Class (Emulates PostgreSQL Relational DB with LocalStorage)
+/**
+ * Database Management Class
+ * Arsitektur: Local Cache First (Optimistic UI) + Real-Time Sync ke Supabase Cloud PostgreSQL
+ */
 class FozzDatabase {
   constructor() {
+    this.supabase = null;
+    this.isSupabaseConnected = false;
+    this.isSyncing = false;
+
     this.init();
+    this.initSupabaseClient();
   }
 
   init() {
@@ -249,8 +262,163 @@ class FozzDatabase {
       localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(SEED_RETURNS));
     }
     if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      // Default logged in as Customer (Ivan Pratama) for smooth exploration
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(SEED_USERS[1]));
+    }
+  }
+
+  // --- Inisialisasi Supabase SDK Client ---
+  initSupabaseClient() {
+    if (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) {
+      try {
+        this.supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        console.log('[FOZZ DB] ⚡ Supabase client terhubung:', SUPABASE_CONFIG.url);
+        
+        this.syncFromSupabase();
+        this.setupRealtimeSubscription();
+      } catch (err) {
+        console.warn('[FOZZ DB] Inisialisasi Supabase ditunda/gagal:', err.message);
+      }
+    } else {
+      console.log('[FOZZ DB] Supabase JS belum terdeteksi di window, menggunakan Local Cache Relational.');
+    }
+  }
+
+  // --- Sinkronisasi Cloud: Ambil data terbaru dari Supabase PostgreSQL ---
+  async syncFromSupabase() {
+    if (!this.supabase || this.isSyncing) return;
+    this.isSyncing = true;
+    this.updateStatusBadge('syncing');
+
+    try {
+      // 1. Sinkronisasi Products
+      const { data: prods, error: prodErr } = await this.supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!prodErr && prods && prods.length > 0) {
+        this.isSupabaseConnected = true;
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(prods));
+      }
+
+      // 2. Sinkronisasi Product Sizes
+      const { data: sizes, error: sizeErr } = await this.supabase
+        .from('product_sizes')
+        .select('*');
+
+      if (!sizeErr && sizes && sizes.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(sizes));
+      }
+
+      // 3. Sinkronisasi Orders
+      const { data: orders, error: ordErr } = await this.supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!ordErr && orders && orders.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+      }
+
+      // 4. Sinkronisasi Order Items
+      const { data: items, error: itemErr } = await this.supabase
+        .from('order_items')
+        .select('*');
+
+      if (!itemErr && items && items.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.ORDER_ITEMS, JSON.stringify(items));
+      }
+
+      // 5. Sinkronisasi Users
+      const { data: users, error: userErr } = await this.supabase
+        .from('users')
+        .select('*');
+
+      if (!userErr && users && users.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      }
+
+      // 6. Sinkronisasi Returns
+      const { data: returns, error: retErr } = await this.supabase
+        .from('returns')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!retErr && returns && returns.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returns));
+      }
+
+      if (this.isSupabaseConnected) {
+        console.log('[FOZZ DB] ✅ Data berhasil disinkronisasi dari Supabase Cloud.');
+        this.updateStatusBadge('connected');
+        this.dispatchDataChange('sync_complete');
+      } else {
+        this.updateStatusBadge('pending_migration');
+      }
+    } catch (err) {
+      console.warn('[FOZZ DB] Supabase sync fallback:', err.message);
+      this.updateStatusBadge('fallback');
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  // --- Realtime Subscriptions (PostgreSQL CDC via Supabase Channel) ---
+  setupRealtimeSubscription() {
+    if (!this.supabase) return;
+    try {
+      this.supabase
+        .channel('fozz-public-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+          console.log('[FOZZ DB Realtime] Orders Change:', payload);
+          this.syncFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'product_sizes' }, (payload) => {
+          console.log('[FOZZ DB Realtime] Stock Change:', payload);
+          this.syncFromSupabase();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'returns' }, (payload) => {
+          console.log('[FOZZ DB Realtime] Returns Change:', payload);
+          this.syncFromSupabase();
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('[FOZZ DB] Realtime setup:', e);
+    }
+  }
+
+  // --- UI Status Indicator Updater ---
+  updateStatusBadge(status) {
+    if (typeof document === 'undefined') return;
+    const badges = document.querySelectorAll('.supabase-status-indicator');
+    badges.forEach(badge => {
+      if (status === 'connected') {
+        badge.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;margin-right:5px;box-shadow:0 0 6px #10b981;"></span>Supabase Cloud: Terhubung`;
+        badge.style.color = '#10b981';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        badge.style.background = 'rgba(16, 185, 129, 0.08)';
+      } else if (status === 'syncing') {
+        badge.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#38bdf8;margin-right:5px;animation:pulse 1s infinite;"></span>Supabase: Sinkronisasi...`;
+        badge.style.color = '#38bdf8';
+        badge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        badge.style.background = 'rgba(56, 189, 248, 0.08)';
+      } else if (status === 'pending_migration') {
+        badge.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-right:5px;"></span>Supabase: Perlu Migrasi SQL`;
+        badge.style.color = '#f59e0b';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        badge.style.background = 'rgba(245, 158, 11, 0.08)';
+      } else {
+        badge.innerHTML = `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#94a3b8;margin-right:5px;"></span>Mode: Local Cache (Relasional)`;
+        badge.style.color = '#94a3b8';
+        badge.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        badge.style.background = 'rgba(148, 163, 184, 0.08)';
+      }
+    });
+  }
+
+  dispatchDataChange(type) {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fozz:data-synced', { detail: { type } }));
     }
   }
 
@@ -298,17 +466,29 @@ class FozzDatabase {
     products.unshift(newProduct);
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
 
-    // Tambahkan size & stock terkait ke product_sizes (FK: product_id)
     const allSizes = this.getProductSizes();
+    const newSizesToInsert = [];
     sizesData.forEach(sz => {
-      allSizes.push({
+      const sizeObj = {
         id: `sz-${Date.now().toString().slice(-4)}-${sz.ukuran.toLowerCase()}`,
         product_id: newProduct.id,
         ukuran: sz.ukuran,
         stok: Number(sz.stok)
-      });
+      };
+      allSizes.push(sizeObj);
+      newSizesToInsert.push(sizeObj);
     });
     localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(allSizes));
+
+    // Kirim sinkronisasi ke Supabase Cloud (Background Asynchronous)
+    if (this.supabase) {
+      this.supabase.from('products').insert([newProduct]).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error insert product:', error.message);
+      });
+      this.supabase.from('product_sizes').insert(newSizesToInsert).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error insert sizes:', error.message);
+      });
+    }
 
     return newProduct;
   }
@@ -328,6 +508,16 @@ class FozzDatabase {
     if (target) {
       target.stok = Math.max(0, Number(newStock));
       localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(sizes));
+
+      if (this.supabase) {
+        this.supabase.from('product_sizes')
+          .update({ stok: target.stok })
+          .eq('id', sizeId)
+          .then(({ error }) => {
+            if (error) console.warn('[Supabase Sync] Error updateStock:', error.message);
+          });
+      }
+
       return target;
     }
     return null;
@@ -378,7 +568,7 @@ class FozzDatabase {
     return wishlist;
   }
 
-  // --- Orders & Order Items (Alur Relasional & Trigger Pengurangan Stok Atomik) ---
+  // --- Orders & Order Items ---
   getOrders() {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.ORDERS) || '[]');
   }
@@ -395,25 +585,14 @@ class FozzDatabase {
     return { order, items, user };
   }
 
-  /**
-   * Checkout Process:
-   * 1. Membuat record di orders
-   * 2. Membuat record terpisah di order_items (Foreign Key ke orders.id dan products.id, mengunci harga_satuan)
-   * 3. Prosedur Trigger Atomik: Ketika status menjadi 'Paid', stok pada product_sizes dikurangi secara atomik
-   */
-  /**
-   * Helper Generator EMVCo Dynamic QRIS Payload (ASPI Standard)
-   */
   generateQrisPayload(orderId, amount) {
     const amtStr = Math.round(amount).toString();
     const amtLen = amtStr.length.toString().padStart(2, '0');
     const orderPart = `01${orderId.length.toString().padStart(2, '0')}${orderId}`;
     const tag62Len = orderPart.length.toString().padStart(2, '0');
     
-    // Construct base payload according to EMVCo / Bank Indonesia QRIS specs
     const base = `00020101021226600016ID.CO.FOZZ.WWW01189360099882211000000215ID102026880091252045691530336054${amtLen}${amtStr}5802ID5918FOZZ STREETWEAR HQ6007JAKARTA62${tag62Len}${orderPart}6304`;
     
-    // Mock CRC16-CCITT calculation for authentic 4-hex checksum
     let crc = 0xFFFF;
     for (let i = 0; i < base.length; i++) {
       crc ^= (base.charCodeAt(i) << 8);
@@ -429,9 +608,6 @@ class FozzDatabase {
     return base + hexCrc;
   }
 
-  /**
-   * Helper Generator 16-Digit Virtual Account Number
-   */
   generateVaNumber(bankCode = 'bca', orderId = '') {
     const prefixes = {
       bca: '88012',
@@ -440,19 +616,11 @@ class FozzDatabase {
       bni: '98811'
     };
     const prefix = prefixes[bankCode.toLowerCase()] || '88012';
-    // Gunakan hash numerik konsisten dari order ID + timestamp
     const cleanId = (orderId.replace(/\D/g, '') || Date.now().toString()).slice(-7);
     const suffix = (cleanId + '8590123').slice(0, 11);
     return prefix + suffix;
   }
 
-  /**
-   * Checkout Process:
-   * 1. Membuat record di orders dengan status 'Pending' (atau 'Paid' jika simulasi direct)
-   * 2. Membuat record terpisah di order_items (Foreign Key ke orders.id dan products.id, mengunci harga_satuan)
-   * 3. Menyimpan metadata Payment Gateway (Dynamic QRIS, Virtual Account, TTL Expiry 15 Menit)
-   * 4. Prosedur Trigger Atomik: Ketika status bergeser ke 'Paid', stok pada product_sizes dipotong secara atomik
-   */
   createOrder(userId, items, shippingAddress, courierName, shippingCost = 20000, initialStatus = "Pending", paymentMethod = "qris") {
     const orders = this.getOrders();
     const orderItems = this.getOrderItems();
@@ -469,7 +637,6 @@ class FozzDatabase {
     const grandTotal = itemsTotal + shippingCost;
     const newOrderId = `ord-${Date.now().toString().slice(-6)}`;
     
-    // Tentukan bank jika metode adalah VA
     let selectedBank = 'bca';
     if (paymentMethod.startsWith('va_')) {
       selectedBank = paymentMethod.replace('va_', '');
@@ -486,9 +653,9 @@ class FozzDatabase {
       alamat_pengiriman: shippingAddress,
       resi_pengiriman: null,
       courier: courierName,
-      payment_method: paymentMethod, // 'qris', 'va_bca', 'va_mandiri', 'va_bri', 'va_bni', 'credit_card'
+      payment_method: paymentMethod,
       payment_status: initialStatus === "Paid" ? "settled" : "pending",
-      payment_expired_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 Menit TTL
+      payment_expired_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       transaction_id: `TRX-PG-${Date.now().toString().slice(-8)}`,
       va_number: vaNumber,
       va_bank: selectedBank.toUpperCase(),
@@ -503,19 +670,20 @@ class FozzDatabase {
       created_at: new Date().toISOString()
     };
 
-    // Tambahkan record ke order_items dengan harga terkunci (harga_satuan)
+    const newItemsToInsert = [];
     items.forEach(it => {
       const prod = this.getProductById(it.productId);
-      orderItems.push({
+      const oiObj = {
         id: `oi-${Date.now().toString().slice(-4)}-${Math.floor(Math.random() * 1000)}`,
         order_id: newOrderId,
         product_id: it.productId,
         ukuran: it.ukuran,
         jumlah: it.qty,
         harga_satuan: prod ? prod.harga : 0
-      });
+      };
+      orderItems.push(oiObj);
+      newItemsToInsert.push(oiObj);
 
-      // TRIGGER ATOMIK: Pengurangan stok pada product_sizes saat berstatus 'Paid'
       if (initialStatus === "Paid") {
         const sizeEntry = productSizes.find(s => s.product_id === it.productId && s.ukuran === it.ukuran);
         if (sizeEntry) {
@@ -530,6 +698,17 @@ class FozzDatabase {
     localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(productSizes));
 
     this.clearCart();
+
+    // Kirim sinkronisasi ke Supabase Cloud
+    if (this.supabase) {
+      this.supabase.from('orders').insert([newOrder]).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error insert order:', error.message);
+      });
+      this.supabase.from('order_items').insert(newItemsToInsert).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error insert order_items:', error.message);
+      });
+    }
+
     return newOrder;
   }
 
@@ -550,7 +729,6 @@ class FozzDatabase {
       }
     }
 
-    // Jika sebelumnya Pending lalu sekarang Paid, jalankan TRIGGER ATOMIK pengurangan stok
     if (previousStatus === "Pending" && newStatus === "Paid") {
       order.payment_status = "settled";
       const orderItems = this.getOrderItems().filter(i => i.order_id === orderId);
@@ -564,7 +742,6 @@ class FozzDatabase {
       localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(productSizes));
     }
 
-    // Jika pesanan dibatalkan setelah Paid (misal refund/retur), pulihkan stok atomik
     if (previousStatus === "Paid" && (newStatus === "Cancelled" || newStatus === "Refunded")) {
       const orderItems = this.getOrderItems().filter(i => i.order_id === orderId);
       const productSizes = this.getProductSizes();
@@ -578,6 +755,24 @@ class FozzDatabase {
     }
 
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+
+    // Kirim sinkronisasi ke Supabase Cloud
+    if (this.supabase) {
+      const updatePayload = {
+        status_pesanan: newStatus,
+        payment_status: order.payment_status,
+        payment_meta: order.payment_meta
+      };
+      if (resi !== null) updatePayload.resi_pengiriman = resi;
+
+      this.supabase.from('orders')
+        .update(updatePayload)
+        .eq('id', orderId)
+        .then(({ error }) => {
+          if (error) console.warn('[Supabase Sync] Error updateOrderStatus:', error.message);
+        });
+    }
+
     return order;
   }
 
@@ -611,20 +806,28 @@ class FozzDatabase {
       product_id: data.product_id,
       product_name: data.product_name,
       current_size: data.current_size,
-      request_type: data.request_type, // 'exchange_size' | 'defect_refund' | 'wrong_item'
+      request_type: data.request_type,
       target_size: data.target_size || null,
       reason: data.reason,
       condition_confirmed: Boolean(data.condition_confirmed),
       video_unboxing_confirmed: Boolean(data.video_unboxing_confirmed),
       photo_url: data.photo_url || "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=400&q=80",
-      status: "submitted", // 'submitted' | 'approved' | 'rejected' | 'completed'
+      status: "submitted",
       admin_note: "Tiket telah dibuat. Sedang dalam antrean review oleh Tim Quality Assurance.",
       return_tracking_no: null,
       replacement_tracking_no: null,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
     returns.unshift(newReturn);
     localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returns));
+
+    if (this.supabase) {
+      this.supabase.from('returns').insert([newReturn]).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error insert return:', error.message);
+      });
+    }
+
     return newReturn;
   }
 
@@ -633,16 +836,30 @@ class FozzDatabase {
     const item = returns.find(r => r.id === returnId);
     if (!item) return null;
 
-    item.status = newStatus;
+    if (newStatus) item.status = newStatus;
     if (adminNote) item.admin_note = adminNote;
     if (replacementTracking) item.replacement_tracking_no = replacementTracking;
     item.updated_at = new Date().toISOString();
 
     localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(returns));
+
+    if (this.supabase) {
+      const updateData = { updated_at: item.updated_at };
+      if (newStatus) updateData.status = newStatus;
+      if (adminNote) updateData.admin_note = adminNote;
+      if (replacementTracking) updateData.replacement_tracking_no = replacementTracking;
+
+      this.supabase.from('returns')
+        .update(updateData)
+        .eq('id', returnId)
+        .then(({ error }) => {
+          if (error) console.warn('[Supabase Sync] Error updateReturnStatus:', error.message);
+        });
+    }
+
     return item;
   }
 
-  // Reset database back to default seed
   resetDatabase() {
     localStorage.clear();
     this.init();
