@@ -1363,10 +1363,16 @@ class FozzApp {
               ` : ''}
 
               ${!isPending && !isCancelled ? `
-                <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
-                  Ajukan Retur / Tukar Size
-                </button>
+                ${['shipped', 'delivered'].includes((ord.status_pesanan || '').toLowerCase()) ? `
+                  <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+                    Ajukan Retur / Tukar Size
+                  </button>
+                ` : `
+                  <span style="font-size: 0.72rem; color: var(--text-muted); background: var(--bg-muted); padding: 0.35rem 0.6rem; border-radius: 4px;">
+                    Retur aktif setelah Shipped/Delivered
+                  </span>
+                `}
               ` : ''}
 
               ${ord.status_pesanan === 'Shipped' ? `
@@ -1854,22 +1860,43 @@ class FozzApp {
     const orderSelect = document.getElementById('return-order-select');
     if (!orderSelect) return;
 
-    const orders = user ? DB.getOrders().filter(o => o.user_id === user.id) : DB.getOrders();
+    const allUserOrders = user ? DB.getOrders().filter(o => o.user_id === user.id) : DB.getOrders();
+
+    // Batasi pilihan retur hanya untuk pesanan berstatus Delivered (atau minimal Shipped)
+    const eligibleOrders = allUserOrders.filter(o => {
+      const st = (o.status_pesanan || '').trim().toLowerCase();
+      return st === 'delivered' || st === 'shipped';
+    });
+
+    if (eligibleOrders.length === 0) {
+      orderSelect.innerHTML = `
+        <option value="">-- Tidak ada pesanan memenuhi syarat (Wajib Shipped/Delivered) --</option>
+      `;
+      const prodSelect = document.getElementById('return-product-select');
+      if (prodSelect) {
+        prodSelect.innerHTML = `<option value="">Belum ada pesanan yang sudah dikirim/diterima</option>`;
+      }
+      this.renderMyReturnsList();
+      return;
+    }
 
     orderSelect.innerHTML = `
       <option value="">-- Pilih Nomor Pesanan --</option>
-      ${orders.map(o => {
+      ${eligibleOrders.map(o => {
         const dateStr = new Date(o.created_at).toLocaleDateString('id-ID');
-        return `<option value="${o.id}" ${o.id === preselectedOrderId ? 'selected' : ''}>#${o.id} &bull; Status: ${o.status_pesanan} &bull; ${this.formatRupiah(o.total_harga)} (${dateStr})</option>`;
+        const isDelivered = (o.status_pesanan || '').toLowerCase() === 'delivered';
+        const badge = isDelivered ? '✓ Diterima (Delivered)' : '🚚 Sedang Dikirim (Shipped)';
+        return `<option value="${o.id}" ${o.id === preselectedOrderId ? 'selected' : ''}>#${o.id} &bull; [${badge}] &bull; ${this.formatRupiah(o.total_harga)} (${dateStr})</option>`;
       }).join('')}
     `;
 
-    if (preselectedOrderId) {
+    const hasPreselected = eligibleOrders.some(o => o.id === preselectedOrderId);
+    if (preselectedOrderId && hasPreselected) {
       orderSelect.value = preselectedOrderId;
       this.handleReturnOrderSelect(preselectedOrderId);
-    } else if (orders.length > 0) {
-      orderSelect.value = orders[0].id;
-      this.handleReturnOrderSelect(orders[0].id);
+    } else {
+      orderSelect.value = eligibleOrders[0].id;
+      this.handleReturnOrderSelect(eligibleOrders[0].id);
     }
 
     this.renderMyReturnsList();
@@ -2047,6 +2074,17 @@ class FozzApp {
 
     const orderId = document.getElementById('return-order-select').value;
     const prodVal = document.getElementById('return-product-select').value;
+
+    if (orderId) {
+      const orderRecord = DB.getOrders().find(o => o.id === orderId);
+      if (orderRecord) {
+        const st = (orderRecord.status_pesanan || '').toLowerCase();
+        if (st !== 'delivered' && st !== 'shipped') {
+          this.showToast('Hanya pesanan berstatus Delivered atau minimal Shipped yang dapat diajukan retur.', 'info');
+          return;
+        }
+      }
+    }
     const returnType = document.querySelector('input[name="return_type"]:checked')?.value || 'exchange_size';
     const targetSize = document.getElementById('target-size-select')?.value || null;
     const reason = document.getElementById('return-reason').value.trim();
@@ -2199,6 +2237,14 @@ class FozzApp {
   }
 
   openReturnRequestForOrder(orderId) {
+    const order = DB.getOrders().find(o => o.id === orderId);
+    if (order) {
+      const st = (order.status_pesanan || '').trim().toLowerCase();
+      if (st !== 'delivered' && st !== 'shipped') {
+        this.showToast(`Pesanan #${orderId} belum dapat diretur karena status masih "${order.status_pesanan}". Syarat retur: paket minimal sudah Shipped atau Delivered.`, 'info');
+        return;
+      }
+    }
     this.closeModal('order-history-modal');
     this.navigateTo('returns', { orderId, scrollToRMA: true });
   }
