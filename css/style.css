@@ -1199,6 +1199,22 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0.7rem 1rem;
   font-size: 0.85rem;
   cursor: pointer;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.size-filter-select optgroup {
+  font-weight: 700;
+  color: var(--text-muted);
+  background-color: var(--bg-surface);
+}
+
+.size-filter-select option {
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
 }
 
 /* Product Catalog Grid */

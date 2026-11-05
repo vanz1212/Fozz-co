@@ -230,10 +230,21 @@
 
         <select class="size-filter-select" id="size-filter-select" onchange="app.handleSizeFilter(this.value)">
           <option value="">Semua Size</option>
-          <option value="S">Size S</option>
-          <option value="M">Size M</option>
-          <option value="L">Size L</option>
-          <option value="XL">Size XL</option>
+          <optgroup label="Tops &amp; Outerwear">
+            <option value="S">Size S</option>
+            <option value="M">Size M</option>
+            <option value="L">Size L</option>
+            <option value="XL">Size XL</option>
+          </optgroup>
+          <optgroup label="Pants / Waist">
+            <option value="28">Size 28</option>
+            <option value="30">Size 30</option>
+            <option value="32">Size 32</option>
+            <option value="34">Size 34</option>
+          </optgroup>
+          <optgroup label="Accessories / Universal">
+            <option value="ALL-SIZE">ALL-SIZE</option>
+          </optgroup>
         </select>
       </div>
     </section>
@@ -1026,7 +1037,6 @@
                   <th>Email (Unique)</th>
                   <th>Role</th>
                   <th>Kontak</th>
-                  <th>Password Hash (Zero-Trust)</th>
                   <th>Status Akun</th>
                 </tr>
               </thead>

@@ -373,11 +373,12 @@ class FozzApp {
       );
     }
 
-    // Size Filter
-    if (this.selectedSizeFilter !== '') {
+    // Size Filter (Mendukung ukuran huruf, angka 28-34, dan ALL-SIZE)
+    if (this.selectedSizeFilter && this.selectedSizeFilter.trim() !== '') {
       const allSizes = DB.getProductSizes();
+      const targetSize = this.selectedSizeFilter.trim().toLowerCase();
       const productIdsWithSize = allSizes
-        .filter(s => s.ukuran === this.selectedSizeFilter && s.stok > 0)
+        .filter(s => s.ukuran && s.ukuran.toString().trim().toLowerCase() === targetSize && s.stok > 0)
         .map(s => s.product_id);
       products = products.filter(p => productIdsWithSize.includes(p.id));
     }
@@ -397,6 +398,8 @@ class FozzApp {
       `;
       return;
     }
+
+    this.renderSizeFilterOptions();
 
     grid.innerHTML = products.map(prod => {
       const isFav = wishlist.includes(prod.id);
@@ -454,12 +457,96 @@ class FozzApp {
         btn.classList.remove('active');
       }
     });
+
+    // Reset ukuran terpilih jika ukuran tersebut tidak ada di kategori terpilih
+    if (this.selectedSizeFilter) {
+      const allSizes = DB.getProductSizes();
+      const catProds = category === 'ALL' ? DB.getProducts() : DB.getProducts().filter(p => p.kategori && p.kategori.toLowerCase() === category.toLowerCase());
+      const catProdIds = new Set(catProds.map(p => p.id));
+      const hasSize = allSizes.some(s => catProdIds.has(s.product_id) && s.ukuran && s.ukuran.toString().toLowerCase() === this.selectedSizeFilter.toLowerCase());
+      if (!hasSize) {
+        this.selectedSizeFilter = '';
+      }
+    }
+
     this.renderCatalog();
   }
 
   handleSearch(val) {
     this.searchQuery = val;
     this.renderCatalog();
+  }
+
+  renderSizeFilterOptions() {
+    const select = document.getElementById('size-filter-select');
+    if (!select) return;
+
+    // Ambil seluruh ukuran unik dari database (dinamis)
+    const allSizes = DB.getProductSizes() || [];
+    const sizeSet = new Set();
+    allSizes.forEach(s => {
+      if (s.ukuran) sizeSet.add(s.ukuran.toString().trim());
+    });
+
+    // Pastikan varian baseline selalu tercakup
+    ['S', 'M', 'L', 'XL', '28', '30', '32', '34', 'ALL-SIZE'].forEach(sz => sizeSet.add(sz));
+
+    const letterOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL'];
+    const letterSizes = [];
+    const numericSizes = [];
+    const otherSizes = [];
+
+    Array.from(sizeSet).forEach(sz => {
+      const upper = sz.toUpperCase();
+      if (letterOrder.includes(upper)) {
+        letterSizes.push(sz);
+      } else if (!isNaN(parseFloat(sz)) && /^\d+$/.test(sz.trim())) {
+        numericSizes.push(sz);
+      } else {
+        otherSizes.push(sz);
+      }
+    });
+
+    letterSizes.sort((a, b) => letterOrder.indexOf(a.toUpperCase()) - letterOrder.indexOf(b.toUpperCase()));
+    numericSizes.sort((a, b) => parseFloat(a) - parseFloat(b));
+    otherSizes.sort((a, b) => a.localeCompare(b));
+
+    const currentVal = (this.selectedSizeFilter || '').trim().toLowerCase();
+
+    let html = '<option value="">Semua Size</option>';
+
+    if (letterSizes.length > 0) {
+      html += '<optgroup label="Tops &amp; Outerwear">';
+      letterSizes.forEach(s => {
+        const isSel = currentVal === s.toLowerCase() ? 'selected' : '';
+        html += `<option value="${s}" ${isSel}>Size ${s}</option>`;
+      });
+      html += '</optgroup>';
+    }
+
+    if (numericSizes.length > 0) {
+      html += '<optgroup label="Pants / Waist">';
+      numericSizes.forEach(s => {
+        const isSel = currentVal === s.toLowerCase() ? 'selected' : '';
+        html += `<option value="${s}" ${isSel}>Size ${s}</option>`;
+      });
+      html += '</optgroup>';
+    }
+
+    if (otherSizes.length > 0) {
+      html += '<optgroup label="Accessories / Universal">';
+      otherSizes.forEach(s => {
+        const isSel = currentVal === s.toLowerCase() ? 'selected' : '';
+        const label = s.toUpperCase() === 'ALL-SIZE' ? 'ALL-SIZE' : s;
+        html += `<option value="${s}" ${isSel}>${label}</option>`;
+      });
+      html += '</optgroup>';
+    }
+
+    if (select.innerHTML !== html) {
+      select.innerHTML = html;
+    }
+    select.value = this.selectedSizeFilter || '';
   }
 
   handleSizeFilter(size) {
@@ -1643,11 +1730,6 @@ class FozzApp {
           </span>
         </td>
         <td>${u.no_telepon || '-'}</td>
-        <td>
-          <code class="mono-text" style="font-size: 0.72rem; color: var(--text-muted); background: var(--bg-muted); padding: 0.2rem 0.4rem; border-radius: 4px;">
-            ${u.password_hash.slice(0, 15)}...[Argon2/Bcrypt Secured]
-          </code>
-        </td>
         <td>
           <span class="status-pill status-paid">ACTIVE</span>
         </td>
