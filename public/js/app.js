@@ -447,6 +447,30 @@ class FozzApp {
   }
 
   filterByCategory(category) {
+    // 1. Pindah view kembali ke katalog jika saat ini berada di halaman retur
+    const catalogView = document.getElementById('customer-catalog-view');
+    const returnsView = document.getElementById('customer-returns-view');
+    const navCatalog = document.getElementById('nav-link-catalog');
+    const navReturns = document.getElementById('nav-link-returns');
+
+    if (returnsView && returnsView.style.display !== 'none') {
+      if (catalogView) catalogView.style.display = 'block';
+      returnsView.style.display = 'none';
+      if (navCatalog) navCatalog.classList.add('active');
+      if (navReturns) navReturns.classList.remove('active');
+
+      // Scroll halus ke daftar produk katalog
+      setTimeout(() => {
+        const filterBar = document.querySelector('.filter-bar') || document.querySelector('.catalog-section');
+        if (filterBar) {
+          filterBar.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          window.scrollTo({ top: 350, behavior: 'smooth' });
+        }
+      }, 50);
+    }
+
+    // 2. Set kategori aktif dan sinkronkan pill kategori
     this.selectedCategory = category;
     const buttons = document.querySelectorAll('#category-pills .cat-btn');
     buttons.forEach(btn => {
@@ -458,7 +482,7 @@ class FozzApp {
       }
     });
 
-    // Reset ukuran terpilih jika ukuran tersebut tidak ada di kategori terpilih
+    // 3. Reset ukuran terpilih jika ukuran tersebut tidak ada di kategori terpilih
     if (this.selectedSizeFilter) {
       const allSizes = DB.getProductSizes();
       const catProds = category === 'ALL' ? DB.getProducts() : DB.getProducts().filter(p => p.kategori && p.kategori.toLowerCase() === category.toLowerCase());
@@ -469,6 +493,7 @@ class FozzApp {
       }
     }
 
+    // 4. Render ulang katalog produk
     this.renderCatalog();
   }
 
