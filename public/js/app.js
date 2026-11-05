@@ -1951,6 +1951,92 @@ class FozzApp {
     }
   }
 
+  handleReturnPhotoUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    const previewContainer = document.getElementById('return-photo-preview-container');
+    const previewImg = document.getElementById('return-photo-preview-img');
+    const nameEl = document.getElementById('return-photo-name');
+    const sizeEl = document.getElementById('return-photo-size');
+    const hiddenUrlInput = document.getElementById('return-photo-url');
+
+    if (!file) {
+      if (previewContainer) previewContainer.style.display = 'none';
+      if (hiddenUrlInput) hiddenUrlInput.value = '';
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      this.showToast('File harus berupa gambar (JPG, PNG, WEBP).', 'info');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      this.showToast('Ukuran gambar maksimal 5MB.', 'info');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target.result;
+      if (previewImg) previewImg.src = result;
+      if (hiddenUrlInput) hiddenUrlInput.value = result;
+      if (nameEl) nameEl.textContent = file.name;
+      if (sizeEl) sizeEl.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+      if (previewContainer) previewContainer.style.display = 'block';
+      this.showToast('Preview gambar lokal berhasil dimuat.', 'success');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removeReturnPhoto() {
+    const fileInput = document.getElementById('return-photo-file');
+    const previewContainer = document.getElementById('return-photo-preview-container');
+    const previewImg = document.getElementById('return-photo-preview-img');
+    const hiddenUrlInput = document.getElementById('return-photo-url');
+
+    if (fileInput) fileInput.value = '';
+    if (previewImg) previewImg.src = '';
+    if (hiddenUrlInput) hiddenUrlInput.value = '';
+    if (previewContainer) previewContainer.style.display = 'none';
+    this.showToast('Foto bukti telah dihapus.', 'info');
+  }
+
+  handleProductImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    const imgUrlInput = document.getElementById('new-prod-img');
+    const previewContainer = document.getElementById('new-prod-preview-container');
+    const previewImg = document.getElementById('new-prod-preview-img');
+
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      this.showToast('File harus berupa gambar.', 'info');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      if (imgUrlInput) imgUrlInput.value = dataUrl;
+      if (previewImg) previewImg.src = dataUrl;
+      if (previewContainer) previewContainer.style.display = 'flex';
+      this.showToast('Preview gambar produk berhasil dimuat.', 'success');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  handleProductUrlInput(val) {
+    const previewContainer = document.getElementById('new-prod-preview-container');
+    const previewImg = document.getElementById('new-prod-preview-img');
+    if (val && val.trim().startsWith('http')) {
+      if (previewImg) previewImg.src = val.trim();
+      if (previewContainer) previewContainer.style.display = 'flex';
+    } else if (previewContainer) {
+      previewContainer.style.display = 'none';
+    }
+  }
+
   submitReturnRequest(event) {
     event.preventDefault();
     const user = DB.getCurrentUser();
@@ -2002,6 +2088,10 @@ class FozzApp {
     this.showToast(`Tiket RMA #${newTicket.id} aktif. Tim QA FOZZ akan mengaudit dalam 1x24 jam.`, 'success');
     document.getElementById('return-reason').value = '';
     document.getElementById('return-photo-url').value = '';
+    const retFile = document.getElementById('return-photo-file');
+    if (retFile) retFile.value = '';
+    const retPreview = document.getElementById('return-photo-preview-container');
+    if (retPreview) retPreview.style.display = 'none';
     document.getElementById('check-hangtag').checked = false;
     document.getElementById('check-unboxing').checked = false;
 
@@ -2066,6 +2156,12 @@ class FozzApp {
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; font-style: italic;">
               "${item.reason}"
             </div>
+            ${item.photo_url ? `
+              <div style="margin-top: 0.6rem; display: flex; align-items: center; gap: 0.6rem;">
+                <img src="${item.photo_url}" alt="Foto Bukti" style="width: 52px; height: 52px; object-fit: cover; border-radius: var(--radius-sm); border: 1.5px solid var(--border-color); cursor: pointer;" onclick="window.open('${item.photo_url}', '_blank')" title="Klik untuk perbesar foto bukti">
+                <span style="font-size: 0.72rem; color: var(--text-muted);">Foto bukti fisik terlampir</span>
+              </div>
+            ` : ''}
           </div>
 
           <!-- RMA Timeline -->
