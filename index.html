@@ -140,6 +140,14 @@
               <span class="mobile-nav-icon">🔐</span>
               <span>Arsitektur Gateway &amp; Zero-Trust</span>
             </li>
+            <li class="mobile-nav-link" onclick="app.openSchemaModal(); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">📊</span>
+              <span>Skema Database SQL</span>
+            </li>
+            <li class="mobile-nav-link mobile-nav-admin" onclick="app.switchRole('admin'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">⚙️</span>
+              <span>HQ Portal (Admin CMS)</span>
+            </li>
           </ul>
 
           <div class="mobile-nav-user-panel" onclick="app.openProfileModal(); app.toggleMobileMenu(false);" title="Lihat Profil Saya">
