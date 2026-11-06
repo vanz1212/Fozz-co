@@ -15,48 +15,144 @@
 </head>
 <body>
 
+  <!-- Quick Role Switcher & Debug Bar (Demo Switcher for Testing - Auto Hidden on Mobile) -->
+  <aside class="role-bar debug-bar" id="role-bar" data-debug-bar aria-label="Demo Role & Debug Switcher">
+    <div class="role-bar-info">
+      <span class="role-bar-badge" id="current-role-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <span id="role-label">CUSTOMER: Ivan Pratama</span>
+      </span>
+      <span class="role-bar-caption">(Berdasarkan Dokumen Otentikasi &amp; Otorisasi FOZZ.CO)</span>
+    </div>
+
+    <div class="role-bar-actions">
+      <span class="role-bar-label">Mode Akses:</span>
+      <button class="role-btn active" id="btn-switch-customer" onclick="app.switchRole('customer')" title="Masuk ke Toko Publik Pelanggan">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8M8 12h8"></path></svg>
+        Portal Publik (Customer)
+      </button>
+      <button class="role-btn" id="btn-switch-admin" onclick="app.switchRole('admin')" title="Masuk ke Panel Kendali Admin HQ">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        HQ Portal (Admin CMS)
+      </button>
+      <button class="role-btn" onclick="app.openSchemaModal()" title="Inspeksi Skema Relasional PostgreSQL">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+        Lihat Skema DB
+      </button>
+    </div>
+  </aside>
+
   <!-- MAIN CUSTOMER STOREFRONT VIEW -->
   <div id="customer-view">
-    <!-- Navbar -->
-    <header class="navbar">
-      <div class="nav-brand" onclick="app.navigateTo('catalog')">
-        <span class="brand-logo-text">FOZZ<span class="brand-dot">.</span>CO</span>
-        <span class="brand-tagline">STREETWEAR</span>
+    <!-- Navbar (Layout Rapih, Responsif & Sticky) -->
+    <header class="navbar" id="main-navbar">
+      <div class="navbar-container">
+        <!-- Brand Logo -->
+        <div class="nav-brand" onclick="app.navigateTo('catalog')">
+          <span class="brand-logo-text">FOZZ<span class="brand-dot">.</span>CO</span>
+          <span class="brand-tagline">STREETWEAR</span>
+        </div>
+
+        <!-- Desktop Navigation Links -->
+        <ul class="nav-links" id="desktop-nav-links">
+          <li class="nav-link active" id="nav-link-catalog" onclick="app.navigateTo('catalog')">Katalog Drops</li>
+          <li class="nav-link" onclick="app.filterByCategory('Outerwear')">Outerwear</li>
+          <li class="nav-link" onclick="app.filterByCategory('Hoodie')">Hoodies</li>
+          <li class="nav-link" onclick="app.filterByCategory('Pants')">Pants</li>
+          <li class="nav-link" onclick="app.openOrderHistory()">Lacak Order</li>
+          <li class="nav-link" id="nav-link-returns" onclick="app.navigateTo('returns')">Garansi Pas 7 Hari</li>
+          <li class="nav-link" onclick="app.openSchemaModal('payment')" style="color: var(--accent-red); font-weight: 700;">Arsitektur Gateway</li>
+        </ul>
+
+        <!-- Nav Actions (Wishlist, Cart, Theme, Profile, Mobile Menu) -->
+        <div class="nav-actions">
+          <!-- Wishlist Button -->
+          <button class="icon-btn" onclick="app.openWishlistModal()" title="Wishlist Koleksi" aria-label="Wishlist Koleksi">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            <span class="badge-count" id="wishlist-badge">0</span>
+          </button>
+
+          <!-- Cart Button -->
+          <button class="icon-btn" onclick="app.toggleCartDrawer(true)" title="Bag / Keranjang" aria-label="Bag / Keranjang">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            <span class="badge-count" id="cart-badge">0</span>
+          </button>
+
+          <!-- Theme Toggle Button -->
+          <button class="icon-btn theme-toggle-btn" onclick="app.toggleTheme()" title="Ubah Mode Tampilan (Brutal Light / Dark)" aria-label="Ubah Mode Tampilan">
+            <span class="theme-toggle-icon"></span>
+          </button>
+
+          <!-- User Profile Avatar -->
+          <button class="btn-secondary nav-profile-btn" onclick="app.openProfileModal()" title="Profil Akun" aria-label="Profil Akun">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span id="nav-user-name" class="nav-user-name">Ivan Pratama</span>
+          </button>
+
+          <!-- Mobile Hamburger Menu Button -->
+          <button class="icon-btn mobile-menu-toggle-btn" id="mobile-menu-toggle-btn" onclick="app.toggleMobileMenu()" aria-label="Buka Menu Navigasi" title="Menu Navigasi">
+            <svg class="hamburger-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <svg class="close-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
       </div>
 
-      <ul class="nav-links">
-        <li class="nav-link active" id="nav-link-catalog" onclick="app.navigateTo('catalog')">Katalog Drops</li>
-        <li class="nav-link" onclick="app.filterByCategory('Outerwear')">Outerwear</li>
-        <li class="nav-link" onclick="app.filterByCategory('Hoodie')">Hoodies</li>
-        <li class="nav-link" onclick="app.filterByCategory('Pants')">Pants</li>
-        <li class="nav-link" onclick="app.openOrderHistory()">Lacak Order</li>
-        <li class="nav-link" id="nav-link-returns" onclick="app.navigateTo('returns')">Garansi Pas 7 Hari</li>
-        <li class="nav-link" onclick="app.openSchemaModal('payment')" style="color: var(--accent-red); font-weight: 700;">Arsitektur Gateway</li>
-      </ul>
+      <!-- Mobile Navigation Drawer / Slide-down Menu -->
+      <div class="mobile-nav-drawer" id="mobile-nav-drawer">
+        <div class="mobile-nav-backdrop" onclick="app.toggleMobileMenu(false)"></div>
+        <div class="mobile-nav-content">
+          <div class="mobile-nav-header">
+            <span class="mobile-nav-title">NAVIGASI FOZZ.CO</span>
+            <button class="modal-close-btn" style="position: static;" onclick="app.toggleMobileMenu(false)" aria-label="Tutup Menu">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+          <ul class="mobile-nav-list">
+            <li class="mobile-nav-link active" onclick="app.navigateTo('catalog'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">⚡</span>
+              <span>Katalog Drops</span>
+            </li>
+            <li class="mobile-nav-link" onclick="app.filterByCategory('Outerwear'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">🧥</span>
+              <span>Outerwear</span>
+            </li>
+            <li class="mobile-nav-link" onclick="app.filterByCategory('Hoodie'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">🧶</span>
+              <span>Hoodies</span>
+            </li>
+            <li class="mobile-nav-link" onclick="app.filterByCategory('Pants'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">👖</span>
+              <span>Pants</span>
+            </li>
+            <li class="mobile-nav-link" onclick="app.openOrderHistory(); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">📦</span>
+              <span>Lacak Order / Riwayat</span>
+            </li>
+            <li class="mobile-nav-link" onclick="app.navigateTo('returns'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">🛡️</span>
+              <span>Garansi Pas 7 Hari</span>
+            </li>
+            <li class="mobile-nav-link" onclick="app.openSizeGuideModal(); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">📏</span>
+              <span>Panduan Ukuran (Size Guide)</span>
+            </li>
+            <li class="mobile-nav-link mobile-nav-gateway" onclick="app.openSchemaModal('payment'); app.toggleMobileMenu(false);">
+              <span class="mobile-nav-icon">🔐</span>
+              <span>Arsitektur Gateway &amp; Zero-Trust</span>
+            </li>
+          </ul>
 
-      <div class="nav-actions">
-        <!-- Wishlist Button -->
-        <button class="icon-btn" onclick="app.openWishlistModal()" title="Wishlist Koleksi">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-          <span class="badge-count" id="wishlist-badge">0</span>
-        </button>
-
-        <!-- Cart Button -->
-        <button class="icon-btn" onclick="app.toggleCartDrawer(true)" title="Bag / Keranjang">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-          <span class="badge-count" id="cart-badge">0</span>
-        </button>
-
-        <!-- Theme Toggle Button -->
-        <button class="icon-btn theme-toggle-btn" onclick="app.toggleTheme()" title="Ubah Mode Tampilan (Brutal Light / Dark)">
-          <span class="theme-toggle-icon"></span>
-        </button>
-
-        <!-- User Profile Avatar -->
-        <button class="btn-secondary" onclick="app.openProfileModal()" style="padding: 0.45rem 0.9rem; font-size: 0.8rem;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-          <span id="nav-user-name">Ivan Pratama</span>
-        </button>
+          <div class="mobile-nav-user-panel" onclick="app.openProfileModal(); app.toggleMobileMenu(false);" title="Lihat Profil Saya">
+            <div class="user-panel-avatar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="user-panel-info">
+              <div class="user-panel-label">PELANGGAN AKTIF</div>
+              <div class="user-panel-name" id="mobile-nav-user-name">Ivan Pratama</div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
       </div>
     </header>
 

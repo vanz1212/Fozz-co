@@ -26,6 +26,20 @@ class FozzApp {
     this.initAdminViews();
     this.initHeroPatternAnimation();
 
+    // Listener keyboard Escape untuk menutup menu navigasi mobile
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.toggleMobileMenu(false);
+      }
+    });
+
+    // Otomatis tutup menu mobile jika viewport di-resize ke ukuran desktop
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 992) {
+        this.toggleMobileMenu(false);
+      }
+    });
+
     // Listener Real-time Cloud Sync Supabase
     window.addEventListener('fozz:data-synced', () => {
       this.renderCatalog();
@@ -297,9 +311,17 @@ class FozzApp {
     const custView = document.getElementById('customer-view');
     const adminView = document.getElementById('admin-view');
     const adminUserDisplay = document.getElementById('admin-user-display');
+    const btnCust = document.getElementById('btn-switch-customer');
+    const btnAdmin = document.getElementById('btn-switch-admin');
+    const roleLabel = document.getElementById('role-label');
 
     if (custView) custView.style.display = 'none';
     if (adminView) adminView.style.display = 'block';
+    if (btnCust) btnCust.classList.remove('active');
+    if (btnAdmin) btnAdmin.classList.add('active');
+    if (roleLabel && currentUser) {
+      roleLabel.textContent = `ADMIN HQ: ${currentUser.nama_lengkap}`;
+    }
     if (adminUserDisplay && currentUser) {
       adminUserDisplay.textContent = `${currentUser.nama_lengkap} (Admin)`;
     }
@@ -312,9 +334,18 @@ class FozzApp {
     this.currentRole = 'customer';
     const custView = document.getElementById('customer-view');
     const adminView = document.getElementById('admin-view');
+    const btnCust = document.getElementById('btn-switch-customer');
+    const btnAdmin = document.getElementById('btn-switch-admin');
+    const roleLabel = document.getElementById('role-label');
+    const currentUser = DB.getCurrentUser();
 
     if (custView) custView.style.display = 'block';
     if (adminView) adminView.style.display = 'none';
+    if (btnCust) btnCust.classList.add('active');
+    if (btnAdmin) btnAdmin.classList.remove('active');
+    if (roleLabel && currentUser) {
+      roleLabel.textContent = `CUSTOMER: ${currentUser.nama_lengkap}`;
+    }
 
     this.updateUserUI();
   }
@@ -345,8 +376,39 @@ class FozzApp {
   updateUserUI() {
     const currentUser = DB.getCurrentUser();
     const navName = document.getElementById('nav-user-name');
-    if (navName && currentUser) {
-      navName.textContent = currentUser.nama_lengkap;
+    const mobileNavName = document.getElementById('mobile-nav-user-name');
+    const roleLabel = document.getElementById('role-label');
+
+    if (currentUser) {
+      if (navName) navName.textContent = currentUser.nama_lengkap;
+      if (mobileNavName) mobileNavName.textContent = currentUser.nama_lengkap;
+      if (roleLabel) {
+        roleLabel.textContent = `${currentUser.role === 'admin' ? 'ADMIN HQ' : 'CUSTOMER'}: ${currentUser.nama_lengkap}`;
+      }
+    }
+  }
+
+  // Mobile Navigation Drawer Toggle
+  toggleMobileMenu(isOpen) {
+    const drawer = document.getElementById('mobile-nav-drawer');
+    const toggleBtn = document.getElementById('mobile-menu-toggle-btn');
+    if (!drawer) return;
+
+    const shouldOpen = typeof isOpen === 'boolean' ? isOpen : !drawer.classList.contains('open');
+    if (shouldOpen) {
+      drawer.classList.add('open');
+      if (toggleBtn) {
+        toggleBtn.classList.add('active');
+        toggleBtn.setAttribute('aria-expanded', 'true');
+      }
+      document.body.style.overflow = 'hidden';
+    } else {
+      drawer.classList.remove('open');
+      if (toggleBtn) {
+        toggleBtn.classList.remove('active');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+      }
+      document.body.style.overflow = '';
     }
   }
 
@@ -447,6 +509,7 @@ class FozzApp {
   }
 
   filterByCategory(category) {
+    this.toggleMobileMenu(false);
     // 1. Pindah view kembali ke katalog jika saat ini berada di halaman retur
     const catalogView = document.getElementById('customer-catalog-view');
     const returnsView = document.getElementById('customer-returns-view');
@@ -685,6 +748,7 @@ class FozzApp {
 
   // --- CART & DRAWER ---
   toggleCartDrawer(isOpen) {
+    if (isOpen) this.toggleMobileMenu(false);
     const overlay = document.getElementById('cart-drawer-overlay');
     if (overlay) {
       if (isOpen) {
@@ -800,6 +864,7 @@ class FozzApp {
   }
 
   openWishlistModal() {
+    this.toggleMobileMenu(false);
     const wishlist = DB.getWishlist();
     if (wishlist.length === 0) {
       this.showToast('Wishlist masih kosong. Tandai drop incaran di katalog.', 'info');
@@ -1337,6 +1402,7 @@ class FozzApp {
 
   // --- ORDER HISTORY & REAL-TIME LOGISTICS TRACKING ---
   openOrderHistory() {
+    this.toggleMobileMenu(false);
     const currentUser = DB.getCurrentUser();
     const container = document.getElementById('order-history-container');
     const allOrders = DB.getOrders();
@@ -1472,6 +1538,7 @@ class FozzApp {
 
   // --- USER PROFILE ---
   openProfileModal() {
+    this.toggleMobileMenu(false);
     const user = DB.getCurrentUser();
     if (!user) return;
 
@@ -1844,6 +1911,7 @@ class FozzApp {
 
   // --- MODAL UTILITIES ---
   openModal(modalId) {
+    this.toggleMobileMenu(false);
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.add('open');
   }
@@ -1892,6 +1960,7 @@ class FozzApp {
   }
 
   navigateTo(section, params = {}) {
+    this.toggleMobileMenu(false);
     const catalogView = document.getElementById('customer-catalog-view');
     const returnsView = document.getElementById('customer-returns-view');
     const navCatalog = document.getElementById('nav-link-catalog');
