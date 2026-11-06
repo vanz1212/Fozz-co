@@ -1025,148 +1025,197 @@ class FozzApp {
     const isQris = order.payment_method === 'qris' || order.payment_method === 'credit_card';
 
     if (isQris) {
-      // Dynamic QRIS View
+      // Dynamic QRIS View with Step-by-Step Flow & Konfirmasi Bayar
       container.innerHTML = `
-        <div class="qris-card">
-          <div class="qris-logo-bar">
-            <span class="qris-badge-tag">QRIS</span>
-            <span style="font-size: 0.72rem; font-weight: 800; color: #1e293b;">ASPI &bull; GPN TERAKREDITASI</span>
+        <div class="payment-steps-container">
+          <!-- STEP 1: Scan QRIS -->
+          <div class="payment-step">
+            <div class="payment-step-number">1</div>
+            <div class="payment-step-content">
+              <div class="payment-step-title">Pindai Kode QRIS</div>
+              <div class="payment-step-desc">Buka aplikasi m-banking atau e-wallet Anda, lalu scan kode QR di bawah ini.</div>
+            </div>
           </div>
 
-          <div style="font-size: 0.78rem; font-weight: 800; color: #0f172a; margin-bottom: 0.2rem;">FOZZ STREETWEAR HQ</div>
-          <div style="font-size: 0.68rem; color: #64748b; font-family: var(--font-mono); margin-bottom: 0.75rem;">NMID: ID1020268800912 &bull; TAG-01: 12 (DYNAMIC)</div>
+          <div class="qris-card">
+            <div class="qris-logo-bar">
+              <span class="qris-badge-tag">QRIS</span>
+              <span style="font-size: 0.72rem; font-weight: 800; color: #1e293b;">ASPI &bull; GPN TERAKREDITASI</span>
+            </div>
 
-          <!-- Stylized Dynamic QR Code Container -->
-          <div class="qris-code-container">
-            <svg width="200" height="200" viewBox="0 0 200 200" style="display: block; margin: 0 auto;">
-              <!-- Outer border & corner squares -->
-              <rect x="0" y="0" width="200" height="200" fill="#ffffff"/>
-              <!-- Position Corner Top-Left -->
-              <rect x="15" y="15" width="45" height="45" fill="#000000"/>
-              <rect x="22" y="22" width="31" height="31" fill="#ffffff"/>
-              <rect x="29" y="29" width="17" height="17" fill="#000000"/>
-              <!-- Position Corner Top-Right -->
-              <rect x="140" y="15" width="45" height="45" fill="#000000"/>
-              <rect x="147" y="22" width="31" height="31" fill="#ffffff"/>
-              <rect x="154" y="29" width="17" height="17" fill="#000000"/>
-              <!-- Position Corner Bottom-Left -->
-              <rect x="15" y="140" width="45" height="45" fill="#000000"/>
-              <rect x="22" y="147" width="31" height="31" fill="#ffffff"/>
-              <rect x="29" y="154" width="17" height="17" fill="#000000"/>
-              <!-- Pattern Simulation Bits -->
-              <rect x="75" y="15" width="10" height="10" fill="#000000"/>
-              <rect x="95" y="15" width="10" height="10" fill="#000000"/>
-              <rect x="115" y="15" width="10" height="10" fill="#000000"/>
-              <rect x="75" y="35" width="20" height="10" fill="#000000"/>
-              <rect x="105" y="35" width="15" height="10" fill="#000000"/>
-              <rect x="15" y="75" width="15" height="10" fill="#000000"/>
-              <rect x="35" y="75" width="15" height="10" fill="#000000"/>
-              <rect x="75" y="75" width="12" height="12" fill="#ff2a40"/>
-              <rect x="95" y="75" width="15" height="10" fill="#000000"/>
-              <rect x="135" y="75" width="20" height="10" fill="#000000"/>
-              <rect x="170" y="75" width="15" height="10" fill="#000000"/>
-              <rect x="15" y="95" width="10" height="20" fill="#000000"/>
-              <rect x="40" y="95" width="15" height="10" fill="#000000"/>
-              <rect x="70" y="95" width="25" height="10" fill="#000000"/>
-              <rect x="110" y="95" width="20" height="20" fill="#000000"/>
-              <rect x="145" y="95" width="10" height="10" fill="#000000"/>
-              <rect x="165" y="95" width="20" height="10" fill="#000000"/>
-              <rect x="15" y="120" width="25" height="10" fill="#000000"/>
-              <rect x="75" y="120" width="15" height="15" fill="#000000"/>
-              <rect x="100" y="120" width="15" height="10" fill="#ff2a40"/>
-              <rect x="135" y="120" width="15" height="20" fill="#000000"/>
-              <rect x="160" y="120" width="25" height="10" fill="#000000"/>
-              <rect x="75" y="145" width="20" height="15" fill="#000000"/>
-              <rect x="105" y="145" width="15" height="10" fill="#000000"/>
-              <rect x="155" y="145" width="30" height="10" fill="#000000"/>
-              <rect x="75" y="170" width="10" height="15" fill="#000000"/>
-              <rect x="95" y="170" width="25" height="10" fill="#000000"/>
-              <rect x="135" y="170" width="20" height="15" fill="#000000"/>
-              <rect x="165" y="170" width="15" height="15" fill="#000000"/>
-            </svg>
-            <div class="qris-emblem">FOZZ</div>
-          </div>
+            <div style="font-size: 0.78rem; font-weight: 800; color: #0f172a; margin-bottom: 0.2rem;">FOZZ STREETWEAR HQ</div>
+            <div style="font-size: 0.68rem; color: #64748b; font-family: var(--font-mono); margin-bottom: 0.75rem;">NMID: ID1020268800912 &bull; TAG-01: 12 (DYNAMIC)</div>
 
-          <div style="font-size: 0.75rem; color: #475569; margin-bottom: 0.5rem;">
-            Pindai dengan BCA Mobile, Livin', GoPay, OVO, ShopeePay, atau DANA.
-          </div>
-          <div style="font-size: 1.15rem; font-weight: 900; color: #ff2a40; font-family: var(--font-mono); margin-bottom: 0.75rem;">
-            ${this.formatRupiah(order.total_harga)}
+            <!-- Stylized Dynamic QR Code Container -->
+            <div class="qris-code-container">
+              <svg width="200" height="200" viewBox="0 0 200 200" style="display: block; margin: 0 auto;">
+                <rect x="0" y="0" width="200" height="200" fill="#ffffff"/>
+                <rect x="15" y="15" width="45" height="45" fill="#000000"/>
+                <rect x="22" y="22" width="31" height="31" fill="#ffffff"/>
+                <rect x="29" y="29" width="17" height="17" fill="#000000"/>
+                <rect x="140" y="15" width="45" height="45" fill="#000000"/>
+                <rect x="147" y="22" width="31" height="31" fill="#ffffff"/>
+                <rect x="154" y="29" width="17" height="17" fill="#000000"/>
+                <rect x="15" y="140" width="45" height="45" fill="#000000"/>
+                <rect x="22" y="147" width="31" height="31" fill="#ffffff"/>
+                <rect x="29" y="154" width="17" height="17" fill="#000000"/>
+                <rect x="75" y="15" width="10" height="10" fill="#000000"/>
+                <rect x="95" y="15" width="10" height="10" fill="#000000"/>
+                <rect x="115" y="15" width="10" height="10" fill="#000000"/>
+                <rect x="75" y="35" width="20" height="10" fill="#000000"/>
+                <rect x="105" y="35" width="15" height="10" fill="#000000"/>
+                <rect x="15" y="75" width="15" height="10" fill="#000000"/>
+                <rect x="35" y="75" width="15" height="10" fill="#000000"/>
+                <rect x="75" y="75" width="12" height="12" fill="#ff2a40"/>
+                <rect x="95" y="75" width="15" height="10" fill="#000000"/>
+                <rect x="135" y="75" width="20" height="10" fill="#000000"/>
+                <rect x="170" y="75" width="15" height="10" fill="#000000"/>
+                <rect x="15" y="95" width="10" height="20" fill="#000000"/>
+                <rect x="40" y="95" width="15" height="10" fill="#000000"/>
+                <rect x="70" y="95" width="25" height="10" fill="#000000"/>
+                <rect x="110" y="95" width="20" height="20" fill="#000000"/>
+                <rect x="145" y="95" width="10" height="10" fill="#000000"/>
+                <rect x="165" y="95" width="20" height="10" fill="#000000"/>
+                <rect x="15" y="120" width="25" height="10" fill="#000000"/>
+                <rect x="75" y="120" width="15" height="15" fill="#000000"/>
+                <rect x="100" y="120" width="15" height="10" fill="#ff2a40"/>
+                <rect x="135" y="120" width="15" height="20" fill="#000000"/>
+                <rect x="160" y="120" width="25" height="10" fill="#000000"/>
+                <rect x="75" y="145" width="20" height="15" fill="#000000"/>
+                <rect x="105" y="145" width="15" height="10" fill="#000000"/>
+                <rect x="155" y="145" width="30" height="10" fill="#000000"/>
+                <rect x="75" y="170" width="10" height="15" fill="#000000"/>
+                <rect x="95" y="170" width="25" height="10" fill="#000000"/>
+                <rect x="135" y="170" width="20" height="15" fill="#000000"/>
+                <rect x="165" y="170" width="15" height="15" fill="#000000"/>
+              </svg>
+              <div class="qris-emblem">FOZZ</div>
+            </div>
+
+            <div style="font-size: 1.15rem; font-weight: 900; color: #ff2a40; font-family: var(--font-mono); margin-bottom: 0.5rem;">
+              ${this.formatRupiah(order.total_harga)}
+            </div>
+
+            <div class="payment-badges">
+              <span class="payment-badge">GoPay</span>
+              <span class="payment-badge">OVO</span>
+              <span class="payment-badge">DANA</span>
+              <span class="payment-badge">ShopeePay</span>
+              <span class="payment-badge">BCA Mobile</span>
+              <span class="payment-badge">Livin'</span>
+            </div>
           </div>
 
           <!-- Raw EMVCo String Preview Accordion -->
-          <div style="text-align: left; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 0.5rem; margin-bottom: 1rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; font-weight: 700; color: #475569; margin-bottom: 0.25rem;">
+          <div style="text-align: left; background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.25rem;">
               <span>EMVCo Dynamic Payload:</span>
               <button type="button" class="role-btn" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;" onclick="app.copyToClipboard('${order.qris_payload}', this)">Salin Payload</button>
             </div>
-            <div style="font-family: var(--font-mono); font-size: 0.62rem; color: #0f172a; word-break: break-all; max-height: 48px; overflow-y: auto;">
+            <div style="font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-secondary); word-break: break-all; max-height: 48px; overflow-y: auto;">
               ${order.qris_payload || 'EMVCo.QRIS.FOZZ.HQ.PAYLOAD'}
             </div>
           </div>
 
-          <!-- SIMULATOR BUTTON (Trigger Real-Time Webhook) -->
-          <button class="btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.85rem;" onclick="app.simulateWebhookPayment('${order.id}', 'qris')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            Simulasi Scan &amp; Bayar via M-Banking (Kirim Webhook)
+          <!-- STEP 2: Konfirmasi Bayar -->
+          <div class="payment-step-connector">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+          </div>
+
+          <div class="payment-step">
+            <div class="payment-step-number">2</div>
+            <div class="payment-step-content">
+              <div class="payment-step-title">Konfirmasi Pembayaran</div>
+              <div class="payment-step-desc">Setelah berhasil scan & bayar di aplikasi Anda, tekan tombol di bawah untuk mengonfirmasi pembayaran.</div>
+            </div>
+          </div>
+
+          <!-- PROMINENT KONFIRMASI BAYAR BUTTON -->
+          <button class="btn-confirm-pay" id="btn-confirm-pay-qris" onclick="app.confirmPayment('${order.id}', 'qris')">
+            <svg class="confirm-pay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            KONFIRMASI BAYAR
           </button>
         </div>
       `;
     } else {
-      // Virtual Account View
+      // Virtual Account View with Step-by-Step Flow & Konfirmasi Bayar
       const activeBank = (order.va_bank || 'BCA').toLowerCase();
       const currentUser = DB.getCurrentUser();
 
       container.innerHTML = `
-        <div class="va-display-card">
-          <!-- Bank Selector Tabs -->
-          <div style="font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem;">Pilih Rekening Bank Virtual Account:</div>
-          <div class="va-bank-selector">
-            <button class="va-bank-chip ${activeBank === 'bca' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bca')">BCA</button>
-            <button class="va-bank-chip ${activeBank === 'mandiri' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'mandiri')">MANDIRI</button>
-            <button class="va-bank-chip ${activeBank === 'bri' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bri')">BRI</button>
-            <button class="va-bank-chip ${activeBank === 'bni' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bni')">BNI</button>
-          </div>
-
-          <!-- VA Number Card -->
-          <div style="margin-bottom: 1rem;">
-            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block;">Nomor Virtual Account (${activeBank.toUpperCase()}):</label>
-            <div class="copy-input-group">
-              <input type="text" class="copy-input-field" value="${order.va_number}" readonly id="va-input-field">
-              <button class="copy-action-btn" onclick="app.copyToClipboard('${order.va_number}', this)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                Salin VA
-              </button>
+        <div class="payment-steps-container">
+          <!-- STEP 1: Salin Nomor VA -->
+          <div class="payment-step">
+            <div class="payment-step-number">1</div>
+            <div class="payment-step-content">
+              <div class="payment-step-title">Salin Nomor Virtual Account</div>
+              <div class="payment-step-desc">Pilih bank, salin nomor VA, lalu transfer melalui m-banking atau ATM Anda.</div>
             </div>
           </div>
 
-          <!-- Bill Amount Card -->
-          <div style="margin-bottom: 1.25rem;">
-            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block;">Total Nominal Transfer (Exact Fixed Amount):</label>
-            <div class="copy-input-group">
-              <input type="text" class="copy-input-field" value="${this.formatRupiah(order.total_harga)}" readonly style="color: var(--accent-red);">
-              <button class="copy-action-btn" onclick="app.copyToClipboard('${order.total_harga}', this)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                Salin Nominal
-              </button>
+          <div class="va-display-card">
+            <!-- Bank Selector Tabs -->
+            <div style="font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem;">Pilih Rekening Bank Virtual Account:</div>
+            <div class="va-bank-selector">
+              <button class="va-bank-chip ${activeBank === 'bca' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bca')">BCA</button>
+              <button class="va-bank-chip ${activeBank === 'mandiri' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'mandiri')">MANDIRI</button>
+              <button class="va-bank-chip ${activeBank === 'bri' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bri')">BRI</button>
+              <button class="va-bank-chip ${activeBank === 'bni' ? 'active' : ''}" onclick="app.selectVaBank('${order.id}', 'bni')">BNI</button>
+            </div>
+
+            <!-- VA Number Card -->
+            <div style="margin-bottom: 1rem;">
+              <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block;">Nomor Virtual Account (${activeBank.toUpperCase()}):</label>
+              <div class="copy-input-group">
+                <input type="text" class="copy-input-field" value="${order.va_number}" readonly id="va-input-field">
+                <button class="copy-action-btn" onclick="app.copyToClipboard('${order.va_number}', this)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  Salin VA
+                </button>
+              </div>
+            </div>
+
+            <!-- Bill Amount Card -->
+            <div style="margin-bottom: 1.25rem;">
+              <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: block;">Total Nominal Transfer (Exact Fixed Amount):</label>
+              <div class="copy-input-group">
+                <input type="text" class="copy-input-field" value="${this.formatRupiah(order.total_harga)}" readonly style="color: var(--accent-red);">
+                <button class="copy-action-btn" onclick="app.copyToClipboard('${order.total_harga}', this)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  Salin Nominal
+                </button>
+              </div>
+            </div>
+
+            <div style="background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
+                <span style="color: var(--text-muted);">Nama Rekening Tujuan:</span>
+                <strong>FOZZ - ${(currentUser.nama_lengkap || 'IVAN PRATAMA').toUpperCase()}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
+                <span style="color: var(--text-muted);">Tipe Virtual Account:</span>
+                <strong style="color: var(--accent-green);">Closed VA (Auto-Reconciled)</strong>
+              </div>
             </div>
           </div>
 
-          <div style="background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1.25rem;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
-              <span style="color: var(--text-muted);">Nama Rekening Tujuan:</span>
-              <strong>FOZZ - ${(currentUser.nama_lengkap || 'IVAN PRATAMA').toUpperCase()}</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
-              <span style="color: var(--text-muted);">Tipe Virtual Account:</span>
-              <strong style="color: var(--accent-green);">Closed VA (Auto-Reconciled)</strong>
+          <!-- STEP 2: Konfirmasi Bayar -->
+          <div class="payment-step-connector">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+          </div>
+
+          <div class="payment-step">
+            <div class="payment-step-number">2</div>
+            <div class="payment-step-content">
+              <div class="payment-step-title">Konfirmasi Pembayaran</div>
+              <div class="payment-step-desc">Setelah transfer berhasil melalui m-banking atau ATM, tekan tombol di bawah untuk mengonfirmasi pembayaran.</div>
             </div>
           </div>
 
-          <!-- SIMULATOR BUTTON (Trigger Real-Time Webhook) -->
-          <button class="btn-primary" style="width: 100%; justify-content: center; padding: 0.75rem; font-size: 0.85rem;" onclick="app.simulateWebhookPayment('${order.id}', 'va')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            Simulasi Transfer VA via Mobile Banking (Kirim Webhook)
+          <!-- PROMINENT KONFIRMASI BAYAR BUTTON -->
+          <button class="btn-confirm-pay" id="btn-confirm-pay-va" onclick="app.confirmPayment('${order.id}', 'va')">
+            <svg class="confirm-pay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            KONFIRMASI BAYAR
           </button>
         </div>
       `;
@@ -1184,6 +1233,31 @@ class FozzApp {
 
     this.renderPaymentInstrument(order);
     this.appendTerminalLog(`[ROUTING] Bank Switch changed to: <span style="color:#38bdf8;">${bankCode.toUpperCase()}</span> &bull; New VA: ${order.va_number}`, 'meta');
+  }
+
+  // --- KONFIRMASI BAYAR: Processing Animation then Webhook Settlement ---
+  confirmPayment(orderId, instrumentType) {
+    const btn = document.getElementById(`btn-confirm-pay-${instrumentType}`);
+    if (!btn || btn.disabled) return;
+
+    // Disable button and show processing spinner
+    btn.disabled = true;
+    btn.innerHTML = `
+      <span class="spinner"></span>
+      Memproses Pembayaran...
+    `;
+
+    // Log the processing stage
+    this.appendTerminalLog(`[CLIENT] Konfirmasi Bayar ditekan — memproses ${instrumentType.toUpperCase()}...`, 'accent');
+
+    // Simulate brief processing delay, then trigger the real webhook settlement
+    setTimeout(() => {
+      btn.innerHTML = `
+        <svg class="confirm-pay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Pembayaran Diproses...
+      `;
+      this.simulateWebhookPayment(orderId, instrumentType);
+    }, 600);
   }
 
   simulateWebhookPayment(orderId, instrumentType) {
