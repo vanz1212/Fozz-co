@@ -27,6 +27,15 @@ class FozzApp {
     this.initAdminViews();
     this.initHeroPatternAnimation();
 
+    // Periksa notifikasi penolakan / peringatan keamanan (misal dialihkan dari admin.html)
+    const secAlert = sessionStorage.getItem('fozz_security_alert');
+    if (secAlert) {
+      sessionStorage.removeItem('fozz_security_alert');
+      setTimeout(() => {
+        this.showToast(secAlert, 'danger');
+      }, 350);
+    }
+
     // Listener keyboard Escape untuk menutup menu navigasi mobile
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
@@ -141,10 +150,19 @@ class FozzApp {
     const container = document.getElementById('toast-container');
     if (!container) return;
 
+    const isDanger = type === 'danger';
+    const isSuccess = type === 'success';
+    const strokeColor = isSuccess ? '#10b981' : '#ff334b';
+
     const toast = document.createElement('div');
     toast.className = 'toast';
+    if (isDanger) {
+      toast.style.borderColor = 'var(--accent-red)';
+      toast.style.borderLeft = '6px solid var(--accent-red)';
+      toast.style.background = 'rgba(255, 42, 64, 0.08)';
+    }
     toast.innerHTML = `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${type === 'success' ? '#10b981' : '#ff334b'}" stroke-width="2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${strokeColor}" stroke-width="2">
         <circle cx="12" cy="12" r="10"></circle>
         <line x1="12" y1="8" x2="12" y2="12"></line>
         <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -153,11 +171,12 @@ class FozzApp {
     `;
     container.appendChild(toast);
 
+    const duration = isDanger ? 4000 : 2800;
     setTimeout(() => {
       toast.style.transform = 'translateX(120%)';
       toast.style.transition = 'transform 0.08s cubic-bezier(0, 0, 0.2, 1)';
       setTimeout(() => toast.remove(), 80);
-    }, 2800);
+    }, duration);
   }
 
   // --- ROUTING & ADMIN ACCESS GATE ---
@@ -168,8 +187,8 @@ class FozzApp {
 
   handleRouting() {
     const hash = window.location.hash;
-    const isStandaloneAdmin = window.location.pathname.endsWith('admin.html');
-    if (hash === '#admin' || hash === '#/admin' || window.location.pathname === '/admin') {
+    const isStandaloneAdmin = window.location.pathname.endsWith('admin.html') || window.location.pathname.startsWith('/admin');
+    if (hash === '#admin' || hash === '#/admin' || window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       if (!isStandaloneAdmin) {
         window.location.href = 'admin.html';
         return;
@@ -180,7 +199,6 @@ class FozzApp {
         this.showAdminView();
       } else {
         this.showCustomerView();
-        this.openAdminLoginModal();
       }
     } else {
       if (!isStandaloneAdmin) {
@@ -191,6 +209,11 @@ class FozzApp {
 
   requestAdminAccess(event) {
     if (event) event.preventDefault();
+    const user = DB.getCurrentUser();
+    if (user && user.role === 'customer') {
+      this.showToast('Akses Admin Ditolak: Anda login sebagai pelanggan umum (' + (user.nama_lengkap || user.email) + ').', 'danger');
+      return;
+    }
     window.location.href = 'admin.html';
   }
 

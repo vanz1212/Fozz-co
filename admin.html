@@ -12,6 +12,133 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="css/style.css">
+
+  <!-- ZERO-TRUST PRE-RENDER & ANTI-INSPECT ELEMENT (F12) SECURITY GUARD -->
+  <script>
+    (function() {
+      // 1. Fungsi Penolakan Keamanan Terpusat (Redirect ke Beranda)
+      function rejectToHome(reason) {
+        try {
+          sessionStorage.setItem('fozz_security_alert', reason || 'Akses Ditolak: Pelanggaran keamanan terdeteksi.');
+          // Wiped DOM seketika untuk mencegah visual inspection
+          if (document.documentElement) {
+            document.documentElement.innerHTML = '';
+          }
+        } catch (e) {}
+        window.location.replace('index.html');
+      }
+
+      // Expose ke window internal
+      window.__fozzRejectAdmin = rejectToHome;
+
+      // 2. Validasi Autentikasi User Biasa (Role: customer)
+      try {
+        const rawUser = localStorage.getItem('fozz_current_user');
+        const user = rawUser && rawUser !== 'null' ? JSON.parse(rawUser) : null;
+        const isAuth = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+
+        // Tolak seketika jika pengguna login sebagai customer / user biasa
+        if (user && user.role !== 'admin') {
+          rejectToHome('Akses Admin Ditolak: Anda login sebagai pelanggan umum (' + (user.nama_lengkap || user.email) + '). Portal CMS hanya untuk staf internal HQ.');
+          return;
+        }
+
+        // Kunci tampilan secara preventif jika belum terautentikasi
+        if (!isAuth) {
+          document.documentElement.classList.add('admin-locked');
+        }
+      } catch (err) {
+        rejectToHome('Akses Ditolak: Sesi kredensial tidak valid.');
+        return;
+      }
+
+      // 3. Proteksi Tombol Pintas DevTools & F12 (Keyboard Interception)
+      window.addEventListener('keydown', function(e) {
+        // Blokir tombol F12 (DevTools)
+        if (e.key === 'F12' || e.keyCode === 123) {
+          e.preventDefault();
+          e.stopPropagation();
+          rejectToHome('Akses Ditolak: Terdeteksi pembukaan Inspect Element (F12). Akses dialihkan ke beranda demi keamanan.');
+          return false;
+        }
+
+        // Blokir kombinasi Ctrl+Shift+I (Inspect), Ctrl+Shift+J (Console), Ctrl+Shift+C (Inspect Element Selector)
+        const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+        if (isCmdOrCtrl && e.shiftKey) {
+          const k = (e.key || '').toLowerCase();
+          if (k === 'i' || k === 'j' || k === 'c' || e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67) {
+            e.preventDefault();
+            e.stopPropagation();
+            rejectToHome('Akses Ditolak: Pintasan Inspect Element / DevTools terdeteksi.');
+            return false;
+          }
+        }
+
+        // Blokir Ctrl+U (View Source)
+        if (isCmdOrCtrl && ((e.key || '').toLowerCase() === 'u' || e.keyCode === 85)) {
+          e.preventDefault();
+          e.stopPropagation();
+          rejectToHome('Akses Ditolak: Upaya melihat source code (Ctrl+U) terdeteksi.');
+          return false;
+        }
+
+        // Blokir Ctrl+S (Save Page)
+        if (isCmdOrCtrl && ((e.key || '').toLowerCase() === 's' || e.keyCode === 83)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, true);
+
+      // 4. Blokir Menu Klik Kanan (Context Menu -> Inspect Element)
+      window.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }, true);
+
+      // 5. Deteksi DevTools Docked via Window Dimension Threshold
+      let devtoolsTriggered = false;
+      function checkDevToolsThreshold() {
+        const widthDiff = window.outerWidth - window.innerWidth;
+        const heightDiff = window.outerHeight - window.innerHeight;
+        // Selisih > 160px mengindikasikan panel DevTools sedang terbuka di samping atau bawah
+        if (widthDiff > 160 || heightDiff > 160) {
+          if (!devtoolsTriggered) {
+            devtoolsTriggered = true;
+            rejectToHome('Akses Ditolak: Panel Inspect Element (DevTools) terdeteksi aktif.');
+          }
+        }
+      }
+      window.addEventListener('resize', checkDevToolsThreshold);
+      setInterval(checkDevToolsThreshold, 500);
+
+      // 6. Anti-DOM Tampering via MutationObserver
+      // Mencegah attacker menghapus overlay gate atau memunculkan view admin via Elements panel
+      const observer = new MutationObserver(function() {
+        const isAuth = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+        if (!isAuth) {
+          const gate = document.getElementById('admin-gate-screen');
+          const adminView = document.getElementById('admin-view');
+          // Jika gate dihapus dari DOM atau disembunyikan
+          if (!gate || window.getComputedStyle(gate).display === 'none') {
+            rejectToHome('Akses Ditolak: Manipulasi elemen login gate (Inspect Element) terdeteksi.');
+            return;
+          }
+          // Jika admin-view dipaksa tampil sebelum verifikasi auth
+          if (adminView && window.getComputedStyle(adminView).display !== 'none' && adminView.children.length > 0) {
+            rejectToHome('Akses Ditolak: Upaya menampilkan panel admin via Inspect Element terdeteksi.');
+            return;
+          }
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', function() {
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+      });
+    })();
+  </script>
+
   <style>
     /* Admin Standalone Enhancements */
     body {
@@ -41,12 +168,24 @@
       width: 100%;
       padding: 2rem;
     }
+
+    /* Anti-Bypass Security: Saat admin-locked aktif, admin-view & modal tidak bisa dirender */
+    html.admin-locked #admin-view,
+    html.admin-locked #add-product-modal {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    html.admin-locked #admin-gate-screen {
+      display: flex !important;
+    }
   </style>
 </head>
 <body>
 
   <!-- ADMIN LOGIN GATE (Tampil jika belum login sebagai Admin HQ) -->
-  <div id="admin-gate-screen" class="admin-gate-overlay" style="display: none;">
+  <div id="admin-gate-screen" class="admin-gate-overlay" style="display: flex;">
     <div class="admin-gate-card">
       <div style="border-bottom: 2px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
         <div class="badge-tag" style="background: var(--accent-red); color: #fff; margin-bottom: 0.4rem; display: inline-block;">RESTRICTED AREA</div>
@@ -94,8 +233,11 @@
     </div>
   </div>
 
-  <!-- ADMIN CMS VIEW (HQ PORTAL) -->
-  <div id="admin-view" style="display: block;">
+  <!-- ADMIN CMS VIEW (HQ PORTAL) - KOSONG SECARA DEFAULT (ZERO-DOM DEFENSE) -->
+  <div id="admin-view" style="display: none;"></div>
+
+  <!-- ADMIN VIEW TEMPLATE (Zero-DOM: Terproteksi dari Inspect Element sebelum login sah) -->
+  <template id="admin-view-template">
     <div class="admin-layout">
       <!-- Admin Sidebar -->
       <aside class="admin-sidebar">
@@ -336,7 +478,6 @@
         </section>
       </main>
     </div>
-  </div>
 
   <!-- ADMIN: ADD NEW DROP MODAL -->
   <div class="modal-overlay" id="add-product-modal">
@@ -421,6 +562,7 @@
       </form>
     </div>
   </div>
+  </template>
 
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
@@ -431,19 +573,31 @@
   <script src="/js/app.js"></script>
 
   <script>
-    // Standalone Admin Gate Logic
+    // Standalone Admin Gate Logic with Zero-DOM Template Unpacking
     function checkStandaloneAuth() {
       const isAuth = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
       const currentUser = DB ? DB.getCurrentUser() : null;
       const gateScreen = document.getElementById('admin-gate-screen');
       const adminView = document.getElementById('admin-view');
+      const template = document.getElementById('admin-view-template');
 
+      // 1. Jika belum autentikasi atau bukan admin: Kunci total
       if (!isAuth || !currentUser || currentUser.role !== 'admin') {
         if (gateScreen) gateScreen.style.display = 'flex';
-        if (adminView) adminView.style.display = 'none';
+        if (adminView) {
+          adminView.style.display = 'none';
+          adminView.innerHTML = ''; // Kosongkan DOM agar tidak ada data yang bisa di-inspect
+        }
       } else {
+        // 2. Jika autentikasi admin sah: Buka kunci & render template
+        document.documentElement.classList.remove('admin-locked');
         if (gateScreen) gateScreen.style.display = 'none';
-        if (adminView) adminView.style.display = 'block';
+        if (adminView) {
+          if (adminView.children.length === 0 && template) {
+            adminView.appendChild(template.content.cloneNode(true));
+          }
+          adminView.style.display = 'block';
+        }
         if (window.app) {
           app.currentRole = 'admin';
           app.renderAdminDashboard();
@@ -464,24 +618,42 @@
       const users = DB.getUsers();
       const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
 
-      if (!targetUser || targetUser.role !== 'admin') {
-        errEl.textContent = 'Akses Ditolak: Akun tidak memiliki privilege Administrator HQ.';
-        errEl.style.display = 'block';
+      // 1. Jika pengguna mencoba login dengan akun customer (user biasa)
+      if (targetUser && targetUser.role === 'customer') {
+        if (window.__fozzRejectAdmin) {
+          window.__fozzRejectAdmin('Akses Admin Ditolak: Akun ' + email + ' terdaftar sebagai Pelanggan Umum. Akses ditolak dan dialihkan.');
+        } else {
+          sessionStorage.setItem('fozz_security_alert', 'Akses Admin Ditolak: Akun ' + email + ' adalah akun Pelanggan Umum.');
+          window.location.replace('index.html');
+        }
         return;
       }
 
+      // 2. Jika akun tidak ada atau bukan role admin
+      if (!targetUser || targetUser.role !== 'admin') {
+        if (window.__fozzRejectAdmin) {
+          window.__fozzRejectAdmin('Akses Admin Ditolak: Kredensial tidak memiliki hak akses Administrator HQ.');
+        } else {
+          sessionStorage.setItem('fozz_security_alert', 'Akses Admin Ditolak: Kredensial bukan Administrator HQ.');
+          window.location.replace('index.html');
+        }
+        return;
+      }
+
+      // 3. Verifikasi kata sandi
       if (pass !== targetUser.password && pass !== 'admin123') {
         errEl.textContent = 'Kredensial Tidak Valid: Kata sandi admin salah.';
         errEl.style.display = 'block';
         return;
       }
 
+      // 4. Sukses Login Admin
       errEl.style.display = 'none';
       DB.setCurrentUser(targetUser);
       sessionStorage.setItem('fozz_admin_authenticated', 'true');
       checkStandaloneAuth();
       if (window.app) {
-        app.showToast('Login Berhasil. Selamat bertugas di HQ Control!', 'success');
+        app.showToast('Login Berhasil. Selamat bertugas di HQ Control, ' + targetUser.nama_lengkap + '!', 'success');
       }
     }
 
@@ -503,11 +675,13 @@
     function logoutAdminStandalone() {
       sessionStorage.removeItem('fozz_admin_authenticated');
       DB.setCurrentUser(null);
+      const adminView = document.getElementById('admin-view');
+      if (adminView) adminView.innerHTML = '';
       window.location.href = 'index.html';
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      setTimeout(checkStandaloneAuth, 100);
+      setTimeout(checkStandaloneAuth, 50);
     });
   </script>
 </body>
