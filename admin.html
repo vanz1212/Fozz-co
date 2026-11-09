@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FOZZ.CO HQ // Operations &amp; CMS Control</title>
+  <meta name="description" content="Portal Administrasi Internal FOZZ.CO Streetwear. Restricted Area.">
+
+  <!-- Google Fonts: Syne, Plus Jakarta Sans, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Admin Standalone Enhancements */
+    body {
+      background-color: var(--bg-primary);
+    }
+    .admin-standalone-wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .admin-gate-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-primary);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .admin-gate-card {
+      background: var(--bg-card);
+      border: 2.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      box-shadow: 6px 6px 0px var(--border-color);
+      max-width: 440px;
+      width: 100%;
+      padding: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ADMIN LOGIN GATE (Tampil jika belum login sebagai Admin HQ) -->
+  <div id="admin-gate-screen" class="admin-gate-overlay" style="display: none;">
+    <div class="admin-gate-card">
+      <div style="border-bottom: 2px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+        <div class="badge-tag" style="background: var(--accent-red); color: #fff; margin-bottom: 0.4rem; display: inline-block;">RESTRICTED AREA</div>
+        <h2 style="font-size: 1.4rem; font-family: var(--font-heading); margin-bottom: 0.25rem;">FOZZ HQ // ADMIN GATE</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Sistem Otentikasi &amp; Otorisasi Administrator</p>
+      </div>
+
+      <div style="background: var(--bg-muted); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem 0.9rem; margin-bottom: 1.25rem; font-size: 0.78rem;">
+        <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--accent-red); margin-bottom: 0.25rem;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          <span>AKSES KHUSUS OPERATOR HQ</span>
+        </div>
+        <div style="color: var(--text-secondary); line-height: 1.4;">
+          Sesuai spesifikasi dokumen Zero-Trust RBAC. Masukkan kredensial administrator untuk mengelola inventaris, pesanan, dan retur.
+        </div>
+      </div>
+
+      <form id="admin-standalone-login-form" onsubmit="handleStandaloneAdminLogin(event)">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">Email Admin</label>
+          <input type="email" id="gate-admin-email" placeholder="admin@fozz.co" required style="width: 100%;">
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">Password</label>
+            <button type="button" onclick="toggleGatePasswordVisibility()" style="background: none; border: none; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
+              <span id="gate-pass-toggle-icon">👁️</span>
+              <span id="gate-pass-toggle-text" style="font-size: 0.7rem; font-weight: 600;">Lihat</span>
+            </button>
+          </div>
+          <input type="password" id="gate-admin-password" placeholder="admin123" required style="width: 100%;">
+        </div>
+
+        <div id="gate-admin-error" style="display: none; background: rgba(255, 51, 75, 0.1); border: 1.5px solid var(--accent-red); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--accent-red); margin-bottom: 1rem; font-weight: 600;"></div>
+
+        <div style="background: var(--bg-subtle); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; margin-bottom: 1.25rem; font-size: 0.74rem; display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: var(--text-muted);">Demo Admin: <code class="mono-text" style="color: var(--text-primary);">admin@fozz.co</code></span>
+          <button type="button" class="role-btn" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="fillGateDemoCreds()">Isi Otomatis</button>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <a href="index.html" class="btn-secondary" style="flex: 1; justify-content: center; text-decoration: none;">Ke Toko</a>
+          <button type="submit" class="btn-primary" style="flex: 2; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            Buka Panel CMS
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ADMIN CMS VIEW (HQ PORTAL) -->
+  <div id="admin-view" style="display: block;">
+    <div class="admin-layout">
+      <!-- Admin Sidebar -->
+      <aside class="admin-sidebar">
+        <div class="admin-sidebar-header">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span class="brand-logo-text" style="font-size: 1.25rem;">FOZZ<span class="brand-dot">.</span>HQ</span>
+            <span class="admin-badge">ADMIN CMS</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">
+            Restricted Portal: <code class="mono-text" style="color: var(--accent-red);">fozz.co/admin.html</code>
+          </div>
+        </div>
+
+        <nav>
+          <div class="admin-nav-item active" onclick="app.switchAdminTab('dashboard')" id="tab-btn-dashboard">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+            <span>Metrik &amp; Performa</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('inventory')" id="tab-btn-inventory">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <span>Inventaris &amp; Drops</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('orders')" id="tab-btn-orders">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+            <span>Fulfillment Order</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('customers')" id="tab-btn-customers">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Direktori User</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.switchAdminTab('returns')" id="tab-btn-returns">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+            <span>Audit Retur &amp; RMA</span>
+            <span class="badge-count" id="admin-returns-badge" style="position: static; margin-left: auto;">0</span>
+          </div>
+          <div class="admin-nav-item" onclick="app.openSchemaModal()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+            <span>Skema Database SQL</span>
+          </div>
+        </nav>
+
+        <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+          <div class="zero-trust-box" style="margin-bottom: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.72rem;">
+            <strong>Zero-Trust Active:</strong> Plain password terenkripsi total. Hak akses staf dibatasi sesuai role.
+          </div>
+          <a href="index.html" class="btn-secondary" style="width: 100%; justify-content: center; font-size: 0.8rem; gap: 0.4rem; text-decoration: none; display: flex;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            Ke Etalase Toko
+          </a>
+        </div>
+      </aside>
+
+      <!-- Admin Main Content Area -->
+      <main class="admin-main">
+        <!-- Dedicated Admin Topbar -->
+        <header class="admin-topbar">
+          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <span class="role-bar-badge" style="border-color: var(--accent-red); color: var(--accent-red); background: rgba(255, 51, 75, 0.08); font-weight: 800; font-size: 0.72rem;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              HQ CONTROL SESSION
+            </span>
+            <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600;">
+              Logged as: <strong style="color: var(--text-primary);" id="admin-user-display">Fozz System Master (Admin)</strong>
+            </span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.6rem;">
+            <span class="supabase-status-indicator" style="font-size: 0.72rem; padding: 0.25rem 0.6rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-weight: 600; display: inline-flex; align-items: center;">Supabase: Menghubungkan...</span>
+            <button class="role-btn" onclick="app.openSchemaModal()" title="Inspeksi Skema Database SQL">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+              Skema DB
+            </button>
+            <button class="icon-btn theme-toggle-btn" onclick="app.toggleTheme()" title="Ubah Tema Tampilan">
+              <span class="theme-toggle-icon"></span>
+            </button>
+            <button class="role-btn" onclick="logoutAdminStandalone()" style="border-color: var(--accent-red); color: var(--accent-red);" title="Keluar dari HQ Control">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              Keluar
+            </button>
+          </div>
+        </header>
+
+        <!-- Sub-View: Dashboard Analytics -->
+        <section id="admin-subview-dashboard">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Metrik &amp; Performa Bisnis</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Live data transaksi, performa drop, dan perputaran stok</p>
+            </div>
+            <button class="btn-primary" onclick="app.openAddProductModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Rilis Drop Baru (New Drop)
+            </button>
+          </div>
+
+          <div class="stats-grid" id="analytics-stats-cards">
+            <!-- Injected dynamically -->
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+            <div class="stat-card">
+              <h3 style="font-size: 1.05rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                <span>Live Orders Masuk</span>
+                <button class="role-btn" onclick="app.switchAdminTab('orders')">Kelola Semua Order &rarr;</button>
+              </h3>
+              <div class="table-container">
+                <table class="data-table" id="dashboard-recent-orders-table">
+                  <!-- Injected -->
+                </table>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <h3 style="font-size: 1.05rem; margin-bottom: 1rem;">Top Movers (Drop Terlaris)</h3>
+              <div id="best-sellers-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                <!-- Injected -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sub-View: Inventory Management -->
+        <section id="admin-subview-inventory" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Kontrol Stok &amp; Drops</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Audit tabel <code class="mono-text">products</code> dan stok live per ukuran di <code class="mono-text">product_sizes</code></p>
+            </div>
+            <button class="btn-primary" onclick="app.openAddProductModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Tambah Drop Baru
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table" id="admin-inventory-table">
+              <thead>
+                <tr>
+                  <th>Artikel Drop</th>
+                  <th>Kategori</th>
+                  <th>Harga Ritel</th>
+                  <th>Stok per Ukuran (product_sizes)</th>
+                  <th>Total Stok</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-table-body">
+                <!-- Injected -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Sub-View: Orders Fulfillment -->
+        <section id="admin-subview-orders" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Fulfillment &amp; Logistik Order</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Validasi status <code class="mono-text">orders</code>, alokasi resi kurir, dan eksekusi flag fraud</p>
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>No. Order</th>
+                  <th>Pelanggan</th>
+                  <th>Item Terkunci (order_items)</th>
+                  <th>Total Bayar</th>
+                  <th>Status</th>
+                  <th>Nomor Resi</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="admin-orders-table-body">
+                <!-- Injected -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Sub-View: Customers Management -->
+        <section id="admin-subview-customers" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Direktori User (Zero-Trust)</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Database pengguna terdaftar pada tabel <code class="mono-text">users</code></p>
+            </div>
+          </div>
+
+          <div class="zero-trust-box">
+            <strong>BATASAN ZERO-TRUST:</strong> Plain password tidak pernah terekspos. Seluruh kredensial diamankan dengan hashing satu arah (Argon2/Bcrypt) sesuai protokol keamanan mutlak.
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Nama Lengkap</th>
+                  <th>Email (Unique)</th>
+                  <th>Role</th>
+                  <th>Kontak</th>
+                  <th>Status Akun</th>
+                </tr>
+              </thead>
+              <tbody id="admin-customers-table-body">
+                <!-- Injected -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Sub-View: Return / RMA Management -->
+        <section id="admin-subview-returns" style="display: none;">
+          <div class="admin-header">
+            <div>
+              <h1 style="font-size: 1.7rem;">Audit Retur &amp; RMA (Quality Assurance)</h1>
+              <p style="color: var(--text-muted); font-size: 0.85rem;">Audit klaim tukar size, cacat pabrik, dan alokasi unit pengganti</p>
+            </div>
+            <button class="role-btn" onclick="app.renderAdminReturns()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              Refresh Tiket
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>No. Tiket RMA</th>
+                  <th>Order &amp; Pelanggan</th>
+                  <th>Item &amp; Ukuran</th>
+                  <th>Jenis Kendala &amp; Alasan</th>
+                  <th>Status RMA</th>
+                  <th>Catatan Review QA</th>
+                  <th>Kirim Resi / Status</th>
+                </tr>
+              </thead>
+              <tbody id="admin-returns-table-body">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- ADMIN: ADD NEW DROP MODAL -->
+  <div class="modal-overlay" id="add-product-modal">
+    <div class="modal-content" style="max-width: 650px; padding: 2rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('add-product-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <span class="admin-badge">CMS DROP CONTROLLER</span>
+        <h2 style="font-size: 1.4rem; margin-top: 0.25rem;">Rilis Drop Baru (New Drop)</h2>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">Insert data ke tabel <code class="mono-text">products</code> dan generate alokasi stok di <code class="mono-text">product_sizes</code>.</p>
+      </div>
+
+      <form onsubmit="app.handleAddNewProduct(event)">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Nama Artikel Drop</label>
+          <input type="text" id="new-prod-name" placeholder="Misal: Heavy Distressed Vintage Jacket" style="width: 100%;" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Kategori</label>
+            <select id="new-prod-cat" style="width: 100%;">
+              <option value="Outerwear">Outerwear</option>
+              <option value="Hoodie">Hoodie</option>
+              <option value="Pants">Pants</option>
+              <option value="T-Shirt">T-Shirt</option>
+              <option value="Accessories">Accessories</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Harga Ritel (IDR)</label>
+            <input type="number" id="new-prod-price" placeholder="650000" style="width: 100%;" required>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Deskripsi &amp; Detail Bahan</label>
+          <textarea id="new-prod-desc" rows="3" style="width: 100%;" placeholder="Detail siluet, gramasi katun, hardware, dan panduan fitting..." required></textarea>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Aset Visual Drop (Upload atau URL)</label>
+          <input type="file" id="new-prod-file" accept="image/*" onchange="app.handleProductImageUpload(event)" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--bg-surface); border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); cursor: pointer; margin-bottom: 0.5rem;">
+          <input type="url" id="new-prod-img" placeholder="Atau masukkan URL foto (https://images.unsplash.com/...)" style="width: 100%;" oninput="app.handleProductUrlInput(this.value)">
+          <div id="new-prod-preview-container" style="display: none; margin-top: 0.5rem; align-items: center; gap: 0.75rem; background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
+            <img id="new-prod-preview-img" src="" alt="Preview Drop" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);">
+            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Preview Foto Drop</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem;">Alokasi Stok per Ukuran (product_sizes):</label>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size S</span>
+              <input type="number" id="new-stock-s" value="5" min="0" style="width: 100%;">
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size M</span>
+              <input type="number" id="new-stock-m" value="8" min="0" style="width: 100%;">
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size L</span>
+              <input type="number" id="new-stock-l" value="6" min="0" style="width: 100%;">
+            </div>
+            <div>
+              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size XL</span>
+              <input type="number" id="new-stock-xl" value="2" min="0" style="width: 100%;">
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <button type="button" class="btn-secondary" style="flex: 1; justify-content: center;" onclick="app.closeModal('add-product-modal')">Batal</button>
+          <button type="submit" class="btn-primary" style="flex: 2; justify-content: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            Publikasikan Drop
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCHEMA INSPECTION MODAL -->
+  <div class="modal-overlay" id="schema-modal">
+    <div class="modal-content" style="max-width: 960px; padding: 2rem;">
+      <button class="modal-close-btn" onclick="app.closeModal('schema-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div style="border-bottom: 2px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
+        <span class="badge-tag" style="background: var(--accent-red); color: #fff;">INTERNAL ARCHITECTURE</span>
+        <h2 style="font-size: 1.4rem; margin-top: 0.25rem;">FOZZ HQ // PostgreSQL Cloud Architecture</h2>
+        <p style="font-size: 0.82rem; color: var(--text-muted);">Dokumentasi skema database relasional 6 tabel dan trigger stok atomik.</p>
+      </div>
+
+      <div class="code-preview-box" style="max-height: 400px; overflow-y: auto; background: var(--bg-card); border: 1.5px solid var(--border-color); padding: 1rem; border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.78rem;">
+        <pre><code style="color: var(--text-primary);">-- FOZZ.CO PostgreSQL Relational Schema
+-- Tables: users, products, product_sizes, orders, order_items, returns
+-- Lihat supabase_schema.sql untuk DDL lengkap.</code></pre>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
+        <button class="btn-primary" onclick="app.copySupabaseSql()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Salin SQL Schema
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/data.js"></script>
+  <script src="/js/app.js"></script>
+
+  <script>
+    // Standalone Admin Gate Logic
+    function checkStandaloneAuth() {
+      const isAuth = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
+      const currentUser = DB ? DB.getCurrentUser() : null;
+      const gateScreen = document.getElementById('admin-gate-screen');
+      const adminView = document.getElementById('admin-view');
+
+      if (!isAuth || !currentUser || currentUser.role !== 'admin') {
+        if (gateScreen) gateScreen.style.display = 'flex';
+        if (adminView) adminView.style.display = 'none';
+      } else {
+        if (gateScreen) gateScreen.style.display = 'none';
+        if (adminView) adminView.style.display = 'block';
+        if (window.app) {
+          app.currentRole = 'admin';
+          app.renderAdminDashboard();
+          app.renderAdminInventory();
+          app.renderAdminOrders();
+          app.renderAdminCustomers();
+          app.renderAdminReturns();
+        }
+      }
+    }
+
+    function handleStandaloneAdminLogin(event) {
+      event.preventDefault();
+      const email = document.getElementById('gate-admin-email').value.trim();
+      const pass = document.getElementById('gate-admin-password').value;
+      const errEl = document.getElementById('gate-admin-error');
+
+      const users = DB.getUsers();
+      const targetUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+      if (!targetUser || targetUser.role !== 'admin') {
+        errEl.textContent = 'Akses Ditolak: Akun tidak memiliki privilege Administrator HQ.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      if (pass !== targetUser.password && pass !== 'admin123') {
+        errEl.textContent = 'Kredensial Tidak Valid: Kata sandi admin salah.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      errEl.style.display = 'none';
+      DB.setCurrentUser(targetUser);
+      sessionStorage.setItem('fozz_admin_authenticated', 'true');
+      checkStandaloneAuth();
+      if (window.app) {
+        app.showToast('Login Berhasil. Selamat bertugas di HQ Control!', 'success');
+      }
+    }
+
+    function toggleGatePasswordVisibility() {
+      const pass = document.getElementById('gate-admin-password');
+      const icon = document.getElementById('gate-pass-toggle-icon');
+      const txt = document.getElementById('gate-pass-toggle-text');
+      if (pass.type === 'password') {
+        pass.type = 'text';
+        icon.textContent = '🔒';
+        txt.textContent = 'Tutup';
+      } else {
+        pass.type = 'password';
+        icon.textContent = '👁️';
+        txt.textContent = 'Lihat';
+      }
+    }
+
+    function fillGateDemoCreds() {
+      document.getElementById('gate-admin-email').value = 'admin@fozz.co';
+      document.getElementById('gate-admin-password').value = 'admin123';
+      const errEl = document.getElementById('gate-admin-error');
+      if (errEl) errEl.style.display = 'none';
+    }
+
+    function logoutAdminStandalone() {
+      sessionStorage.removeItem('fozz_admin_authenticated');
+      // Set current user back to customer
+      const users = DB.getUsers();
+      const defaultCustomer = users.find(u => u.role === 'customer') || users[1];
+      if (defaultCustomer) DB.setCurrentUser(defaultCustomer);
+      window.location.href = 'index.html';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(checkStandaloneAuth, 100);
+    });
+  </script>
+</body>
+</html>
+

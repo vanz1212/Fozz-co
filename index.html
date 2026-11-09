@@ -15,33 +15,6 @@
 </head>
 <body>
 
-  <!-- Quick Role Switcher & Debug Bar (Demo Switcher for Testing - Auto Hidden on Mobile) -->
-  <aside class="role-bar debug-bar" id="role-bar" data-debug-bar aria-label="Demo Role & Debug Switcher">
-    <div class="role-bar-info">
-      <span class="role-bar-badge" id="current-role-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        <span id="role-label">CUSTOMER: Ivan Pratama</span>
-      </span>
-      <span class="role-bar-caption">(Berdasarkan Dokumen Otentikasi &amp; Otorisasi FOZZ.CO)</span>
-    </div>
-
-    <div class="role-bar-actions">
-      <span class="role-bar-label">Mode Akses:</span>
-      <button class="role-btn active" id="btn-switch-customer" onclick="app.switchRole('customer')" title="Masuk ke Toko Publik Pelanggan">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v8M8 12h8"></path></svg>
-        Portal Publik (Customer)
-      </button>
-      <button class="role-btn" id="btn-switch-admin" onclick="app.switchRole('admin')" title="Masuk ke Panel Kendali Admin HQ">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        HQ Portal (Admin CMS)
-      </button>
-      <button class="role-btn" onclick="app.openSchemaModal()" title="Inspeksi Skema Relasional PostgreSQL">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-        Lihat Skema DB
-      </button>
-    </div>
-  </aside>
-
   <!-- MAIN CUSTOMER STOREFRONT VIEW -->
   <div id="customer-view">
     <!-- Navbar (Layout Rapih, Responsif & Sticky) -->
@@ -61,7 +34,6 @@
           <li class="nav-link" onclick="app.filterByCategory('Pants')">Pants</li>
           <li class="nav-link" onclick="app.openOrderHistory()">Lacak Order</li>
           <li class="nav-link" id="nav-link-returns" onclick="app.navigateTo('returns')">Garansi Pas 7 Hari</li>
-          <li class="nav-link" onclick="app.openSchemaModal('payment')" style="color: var(--accent-red); font-weight: 700;">Arsitektur Gateway</li>
         </ul>
 
         <!-- Nav Actions (Wishlist, Cart, Theme, Profile, Mobile Menu) -->
@@ -96,73 +68,61 @@
           </button>
         </div>
       </div>
+    </header>
 
-      <!-- Mobile Navigation Drawer / Slide-down Menu -->
-      <div class="mobile-nav-drawer" id="mobile-nav-drawer">
-        <div class="mobile-nav-backdrop" onclick="app.toggleMobileMenu(false)"></div>
-        <div class="mobile-nav-content">
-          <div class="mobile-nav-header">
-            <span class="mobile-nav-title">NAVIGASI FOZZ.CO</span>
-            <button class="modal-close-btn" style="position: static;" onclick="app.toggleMobileMenu(false)" aria-label="Tutup Menu">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-          </div>
-          <ul class="mobile-nav-list">
-            <li class="mobile-nav-link active" onclick="app.navigateTo('catalog'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">⚡</span>
-              <span>Katalog Drops</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.filterByCategory('Outerwear'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">🧥</span>
-              <span>Outerwear</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.filterByCategory('Hoodie'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">🧶</span>
-              <span>Hoodies</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.filterByCategory('Pants'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">👖</span>
-              <span>Pants</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.openOrderHistory(); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">📦</span>
-              <span>Lacak Order / Riwayat</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.navigateTo('returns'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">🛡️</span>
-              <span>Garansi Pas 7 Hari</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.openSizeGuideModal(); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">📏</span>
-              <span>Panduan Ukuran (Size Guide)</span>
-            </li>
-            <li class="mobile-nav-link mobile-nav-gateway" onclick="app.openSchemaModal('payment'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">🔐</span>
-              <span>Arsitektur Gateway &amp; Zero-Trust</span>
-            </li>
-            <li class="mobile-nav-link" onclick="app.openSchemaModal(); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">📊</span>
-              <span>Skema Database SQL</span>
-            </li>
-            <li class="mobile-nav-link mobile-nav-admin" onclick="app.switchRole('admin'); app.toggleMobileMenu(false);">
-              <span class="mobile-nav-icon">⚙️</span>
-              <span>HQ Portal (Admin CMS)</span>
-            </li>
-          </ul>
+    <!-- Mobile Navigation Drawer / Slide-down Menu (Positioned outside header to avoid stacking context & backdrop-filter clipping) -->
+    <div class="mobile-nav-drawer" id="mobile-nav-drawer">
+      <div class="mobile-nav-backdrop" onclick="app.toggleMobileMenu(false)"></div>
+      <div class="mobile-nav-content">
+        <div class="mobile-nav-header">
+          <span class="mobile-nav-title">NAVIGASI FOZZ.CO</span>
+          <button class="modal-close-btn" style="position: static;" onclick="app.toggleMobileMenu(false)" aria-label="Tutup Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        <ul class="mobile-nav-list">
+          <li class="mobile-nav-link active" onclick="app.navigateTo('catalog'); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">⚡</span>
+            <span>Katalog Drops</span>
+          </li>
+          <li class="mobile-nav-link" onclick="app.filterByCategory('Outerwear'); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">🧥</span>
+            <span>Outerwear</span>
+          </li>
+          <li class="mobile-nav-link" onclick="app.filterByCategory('Hoodie'); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">🧶</span>
+            <span>Hoodies</span>
+          </li>
+          <li class="mobile-nav-link" onclick="app.filterByCategory('Pants'); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">👖</span>
+            <span>Pants</span>
+          </li>
+          <li class="mobile-nav-link" onclick="app.openOrderHistory(); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">📦</span>
+            <span>Lacak Order / Riwayat</span>
+          </li>
+          <li class="mobile-nav-link" onclick="app.navigateTo('returns'); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">🛡️</span>
+            <span>Garansi Pas 7 Hari</span>
+          </li>
+          <li class="mobile-nav-link" onclick="app.openSizeGuideModal(); app.toggleMobileMenu(false);">
+            <span class="mobile-nav-icon">📏</span>
+            <span>Panduan Ukuran (Size Guide)</span>
+          </li>
+        </ul>
 
-          <div class="mobile-nav-user-panel" onclick="app.openProfileModal(); app.toggleMobileMenu(false);" title="Lihat Profil Saya">
-            <div class="user-panel-avatar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-            </div>
-            <div class="user-panel-info">
-              <div class="user-panel-label">PELANGGAN AKTIF</div>
-              <div class="user-panel-name" id="mobile-nav-user-name">Ivan Pratama</div>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        <div class="mobile-nav-user-panel" onclick="app.openProfileModal(); app.toggleMobileMenu(false);" title="Lihat Profil Saya">
+          <div class="user-panel-avatar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
           </div>
+          <div class="user-panel-info">
+            <div class="user-panel-label">PELANGGAN AKTIF</div>
+            <div class="user-panel-name" id="mobile-nav-user-name">Ivan Pratama</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </div>
       </div>
-    </header>
+    </div>
 
     <!-- SUB-VIEW 1: STOREFRONT CATALOG (HERO, FILTERS & PRODUCTS) -->
     <div id="customer-catalog-view">
@@ -944,266 +904,14 @@
         <span>&bull;</span>
         <span style="cursor: pointer;" onclick="app.showToast('Syarat &amp; Ketentuan: Semua pesanan terikat jaminan stok real-time.')">Syarat &amp; Ketentuan</span>
         <span>&bull;</span>
-        <a href="#admin" onclick="app.requestAdminAccess(event)" style="display: inline-flex; align-items: center; gap: 0.35rem; color: var(--text-muted); cursor: pointer;" title="Akses Administrator HQ">
+        <a href="admin.html" style="display: inline-flex; align-items: center; gap: 0.35rem; color: var(--text-muted); text-decoration: none;" title="Staff Portal">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          HQ Admin Portal
+          Staff Portal
         </a>
       </div>
     </div>
   </footer>
 </div> <!-- /#customer-view -->
-
-  <!-- ADMIN CMS VIEW (HQ PORTAL) -->
-  <div id="admin-view" style="display: none;">
-    <div class="admin-layout">
-      <!-- Admin Sidebar -->
-      <aside class="admin-sidebar">
-        <div class="admin-sidebar-header">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span class="brand-logo-text" style="font-size: 1.25rem;">FOZZ<span class="brand-dot">.</span>HQ</span>
-            <span class="admin-badge">ADMIN</span>
-          </div>
-          <div style="font-size: 0.75rem; color: var(--text-muted);">
-            Restricted Area: <code class="mono-text" style="color: var(--accent-red);">fozz.co/hq-portal</code>
-          </div>
-        </div>
-
-        <nav>
-          <div class="admin-nav-item active" onclick="app.switchAdminTab('dashboard')" id="tab-btn-dashboard">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
-            <span>Metrik & Performa</span>
-          </div>
-          <div class="admin-nav-item" onclick="app.switchAdminTab('inventory')" id="tab-btn-inventory">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            <span>Inventaris & Drops</span>
-          </div>
-          <div class="admin-nav-item" onclick="app.switchAdminTab('orders')" id="tab-btn-orders">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-            <span>Fulfillment Order</span>
-          </div>
-          <div class="admin-nav-item" onclick="app.switchAdminTab('customers')" id="tab-btn-customers">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            <span>Direktori User</span>
-          </div>
-          <div class="admin-nav-item" onclick="app.switchAdminTab('returns')" id="tab-btn-returns">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
-            <span>Audit Retur & RMA</span>
-            <span class="badge-count" id="admin-returns-badge" style="position: static; margin-left: auto;">1</span>
-          </div>
-          <div class="admin-nav-item" onclick="app.openSchemaModal()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-            <span>Skema Database SQL</span>
-          </div>
-        </nav>
-
-        <div style="margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
-          <div class="zero-trust-box" style="margin-bottom: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.72rem;">
-            <strong>Zero-Trust Active:</strong> Plain password & data kartu kredit terenkripsi total—akses admin diblokir.
-          </div>
-          <button class="btn-secondary" style="width: 100%; justify-content: center; font-size: 0.8rem; gap: 0.4rem;" onclick="app.logoutAdmin()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-            Keluar ke Storefront
-          </button>
-        </div>
-      </aside>
-
-      <!-- Admin Main Content Area -->
-      <main class="admin-main">
-        <!-- Dedicated Admin Topbar -->
-        <header class="admin-topbar">
-          <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="role-bar-badge" style="border-color: var(--accent-red); color: var(--accent-red); background: rgba(255, 51, 75, 0.08); font-weight: 800; font-size: 0.72rem;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              HQ CONTROL SESSION
-            </span>
-            <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600;">
-              Logged as: <strong style="color: var(--text-primary);" id="admin-user-display">Fozz System Master (Admin)</strong>
-            </span>
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 0.6rem;">
-            <span class="supabase-status-indicator" style="font-size: 0.72rem; padding: 0.25rem 0.6rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-weight: 600; display: inline-flex; align-items: center;">Supabase: Menghubungkan...</span>
-            <button class="role-btn" onclick="app.openSchemaModal()" title="Inspeksi Skema Database SQL">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-              Skema DB
-            </button>
-            <button class="icon-btn theme-toggle-btn" onclick="app.toggleTheme()" title="Ubah Tema Tampilan">
-              <span class="theme-toggle-icon"></span>
-            </button>
-            <button class="role-btn" onclick="app.logoutAdmin()" style="border-color: var(--accent-red); color: var(--accent-red);" title="Keluar dari HQ Control">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              Keluar ke Storefront
-            </button>
-          </div>
-        </header>
-
-        <!-- Sub-View: Dashboard Analytics -->
-        <section id="admin-subview-dashboard">
-          <div class="admin-header">
-            <div>
-              <h1 style="font-size: 1.7rem;">Metrik & Performa Bisnis</h1>
-              <p style="color: var(--text-muted); font-size: 0.85rem;">Live data transaksi, performa drop, dan perputaran stok</p>
-            </div>
-            <button class="btn-primary" onclick="app.openAddProductModal()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Rilis Drop Baru (New Drop)
-            </button>
-          </div>
-
-          <div class="stats-grid" id="analytics-stats-cards">
-            <!-- Injected dynamically -->
-          </div>
-
-          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 2rem;">
-            <div class="stat-card">
-              <h3 style="font-size: 1.05rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
-                <span>Live Orders Masuk</span>
-                <button class="role-btn" onclick="app.switchAdminTab('orders')">Kelola Semua Order &rarr;</button>
-              </h3>
-              <div class="table-container">
-                <table class="data-table" id="dashboard-recent-orders-table">
-                  <!-- Injected -->
-                </table>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <h3 style="font-size: 1.05rem; margin-bottom: 1rem;">Top Movers (Drop Terlaris)</h3>
-              <div id="best-sellers-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
-                <!-- Injected -->
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Sub-View: Inventory Management -->
-        <section id="admin-subview-inventory" style="display: none;">
-          <div class="admin-header">
-            <div>
-              <h1 style="font-size: 1.7rem;">Kontrol Stok & Drops</h1>
-              <p style="color: var(--text-muted); font-size: 0.85rem;">Audit tabel <code class="mono-text">products</code> dan stok live per ukuran di <code class="mono-text">product_sizes</code></p>
-            </div>
-            <button class="btn-primary" onclick="app.openAddProductModal()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-              Tambah Drop Baru
-            </button>
-          </div>
-
-          <div class="table-container">
-            <table class="data-table" id="admin-inventory-table">
-              <thead>
-                <tr>
-                  <th>Artikel Drop</th>
-                  <th>Kategori</th>
-                  <th>Harga Ritel</th>
-                  <th>Stok per Ukuran (product_sizes)</th>
-                  <th>Total Stok</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="inventory-table-body">
-                <!-- Injected -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Sub-View: Orders Fulfillment -->
-        <section id="admin-subview-orders" style="display: none;">
-          <div class="admin-header">
-            <div>
-              <h1 style="font-size: 1.7rem;">Fulfillment & Logistik Order</h1>
-              <p style="color: var(--text-muted); font-size: 0.85rem;">Validasi status <code class="mono-text">orders</code>, alokasi resi kurir, dan eksekusi flag fraud</p>
-            </div>
-          </div>
-
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>No. Order</th>
-                  <th>Pelanggan</th>
-                  <th>Item Terkunci (order_items)</th>
-                  <th>Total Bayar</th>
-                  <th>Status</th>
-                  <th>Nomor Resi</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="admin-orders-table-body">
-                <!-- Injected -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Sub-View: Customers Management -->
-        <section id="admin-subview-customers" style="display: none;">
-          <div class="admin-header">
-            <div>
-              <h1 style="font-size: 1.7rem;">Direktori User (Zero-Trust)</h1>
-              <p style="color: var(--text-muted); font-size: 0.85rem;">Database pengguna terdaftar pada tabel <code class="mono-text">users</code></p>
-            </div>
-          </div>
-
-          <div class="zero-trust-box">
-            <strong>BATASAN ZERO-TRUST:</strong> Plain password tidak pernah terekspos. Seluruh kredensial diamankan dengan hashing satu arah (Argon2/Bcrypt) sesuai protokol keamanan mutlak.
-          </div>
-
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>User ID</th>
-                  <th>Nama Lengkap</th>
-                  <th>Email (Unique)</th>
-                  <th>Role</th>
-                  <th>Kontak</th>
-                  <th>Status Akun</th>
-                </tr>
-              </thead>
-              <tbody id="admin-customers-table-body">
-                <!-- Injected -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Sub-View: Return / RMA Management -->
-        <section id="admin-subview-returns" style="display: none;">
-          <div class="admin-header">
-            <div>
-              <h1 style="font-size: 1.7rem;">Audit Retur & RMA (Quality Assurance)</h1>
-              <p style="color: var(--text-muted); font-size: 0.85rem;">Audit klaim tukar size, cacat pabrik, dan alokasi unit pengganti</p>
-            </div>
-            <button class="role-btn" onclick="app.renderAdminReturns()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-              Refresh Tiket
-            </button>
-          </div>
-
-          <div class="table-container">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>No. Tiket RMA</th>
-                  <th>Order & Pelanggan</th>
-                  <th>Item & Ukuran</th>
-                  <th>Jenis Kendala & Alasan</th>
-                  <th>Status RMA</th>
-                  <th>Catatan Review QA</th>
-                  <th>Kirim Resi / Status</th>
-                </tr>
-              </thead>
-              <tbody id="admin-returns-table-body">
-                <!-- Injected via JavaScript -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </div>
-  </div>
 
   <!-- PRODUCT DETAIL MODAL -->
   <div class="modal-overlay" id="product-detail-modal">
@@ -1415,86 +1123,6 @@
     </div>
   </div>
 
-  <!-- ADMIN: ADD NEW DROP MODAL -->
-  <div class="modal-overlay" id="add-product-modal">
-    <div class="modal-content" style="max-width: 650px; padding: 2rem;">
-      <button class="modal-close-btn" onclick="app.closeModal('add-product-modal')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-
-      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-        <span class="admin-badge">CMS DROP CONTROLLER</span>
-        <h2 style="font-size: 1.4rem; margin-top: 0.25rem;">Rilis Drop Baru (New Drop)</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Insert data ke tabel <code class="mono-text">products</code> dan generate alokasi stok di <code class="mono-text">product_sizes</code>.</p>
-      </div>
-
-      <form onsubmit="app.handleAddNewProduct(event)">
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Nama Artikel Drop</label>
-          <input type="text" id="new-prod-name" placeholder="Misal: Heavy Distressed Vintage Jacket" style="width: 100%;" required>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-          <div>
-            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Kategori</label>
-            <select id="new-prod-cat" style="width: 100%;">
-              <option value="Outerwear">Outerwear</option>
-              <option value="Hoodie">Hoodie</option>
-              <option value="Pants">Pants</option>
-              <option value="T-Shirt">T-Shirt</option>
-              <option value="Accessories">Accessories</option>
-            </select>
-          </div>
-          <div>
-            <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Harga Ritel (IDR)</label>
-            <input type="number" id="new-prod-price" placeholder="650000" style="width: 100%;" required>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Deskripsi & Detail Bahan</label>
-          <textarea id="new-prod-desc" rows="3" style="width: 100%;" placeholder="Detail siluet, gramasi katun, hardware, dan panduan fitting..." required></textarea>
-        </div>
-
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.35rem;">Aset Visual Drop (Upload atau URL)</label>
-          <input type="file" id="new-prod-file" accept="image/*" onchange="app.handleProductImageUpload(event)" style="width: 100%; font-size: 0.8rem; padding: 0.5rem; background: var(--bg-surface); border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); cursor: pointer; margin-bottom: 0.5rem;">
-          <input type="url" id="new-prod-img" placeholder="Atau masukkan URL foto (https://images.unsplash.com/...)" style="width: 100%;" oninput="app.handleProductUrlInput(this.value)">
-          <div id="new-prod-preview-container" style="display: none; margin-top: 0.5rem; display: none; align-items: center; gap: 0.75rem; background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.5rem;">
-            <img id="new-prod-preview-img" src="" alt="Preview Drop" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);">
-            <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600;">Preview Foto Drop</span>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 1.5rem;">
-          <label style="display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.5rem;">Alokasi Stok per Ukuran (product_sizes):</label>
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
-            <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size S</span>
-              <input type="number" id="new-stock-s" value="5" min="0" style="width: 100%;">
-            </div>
-            <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size M</span>
-              <input type="number" id="new-stock-m" value="10" min="0" style="width: 100%;">
-            </div>
-            <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size L</span>
-              <input type="number" id="new-stock-l" value="8" min="0" style="width: 100%;">
-            </div>
-            <div>
-              <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Size XL</span>
-              <input type="number" id="new-stock-xl" value="4" min="0" style="width: 100%;">
-            </div>
-          </div>
-        </div>
-
-        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">
-          Rilis Drop ke Katalog (Insert DB)
-        </button>
-      </form>
-    </div>
-  </div>
-
   <!-- REAL-TIME PAYMENT GATEWAY SIMULATION MODAL -->
   <div class="modal-overlay" id="payment-gateway-modal">
     <div class="modal-content" style="max-width: 820px; padding: 2rem;">
@@ -1559,409 +1187,6 @@
           </div>
           <div id="gateway-logs-body">
             <!-- Dynamic terminal lines -->
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- UPGRADED COMPREHENSIVE ARCHITECTURE & PAYMENT GATEWAY SPECIFICATION MODAL -->
-  <div class="modal-overlay" id="schema-modal">
-    <div class="modal-content" style="max-width: 960px; padding: 2.25rem; max-height: 90vh; overflow-y: auto;">
-      <button class="modal-close-btn" onclick="app.closeModal('schema-modal')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-
-      <!-- Modal Header -->
-      <div style="border-bottom: 2px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-          <span class="badge-tag" style="background: var(--accent-red); color: #fff;">INTERNAL SPECIFICATION</span>
-          <span class="role-bar-badge" style="font-size: 0.7rem;">FOZZ HQ ARCHITECTURE</span>
-        </div>
-        <h2 style="font-size: 1.6rem; margin-top: 0.2rem;">Arsitektur Pembayaran Real-Time &amp; Skema Sistem</h2>
-        <p style="font-size: 0.85rem; color: var(--text-muted);">
-          Spesifikasi teknis penyelesaian transaksi Payment Gateway, validasi otomatis instrumen QRIS Dinamis &amp; Virtual Account, serta trigger atomik database PostgreSQL.
-        </p>
-      </div>
-
-      <!-- Navigation Tabs -->
-      <div class="arch-tab-nav">
-        <button class="arch-tab-btn active" id="tab-btn-gateway-arch" onclick="app.switchArchTab('gateway')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          1. Arsitektur Gateway Real-Time
-        </button>
-        <button class="arch-tab-btn" id="tab-btn-qris-arch" onclick="app.switchArchTab('qris')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          2. Validasi QRIS Dinamis
-        </button>
-        <button class="arch-tab-btn" id="tab-btn-va-arch" onclick="app.switchArchTab('va')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-          3. Validasi Virtual Account
-        </button>
-        <button class="arch-tab-btn" id="tab-btn-db-arch" onclick="app.switchArchTab('db')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-          4. Skema Database (PostgreSQL)
-        </button>
-      </div>
-
-      <!-- TAB 1 CONTENT: REAL-TIME PAYMENT GATEWAY ARCHITECTURE -->
-      <div id="arch-content-gateway" class="arch-tab-content">
-        <!-- Sequence Flow Overview -->
-        <div style="background: rgba(255, 42, 64, 0.06); border: 1.5px solid var(--accent-red); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.5rem;">
-          <h4 style="color: var(--accent-red); font-size: 0.95rem; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
-            Siklus Penyelesaian Transaksi Real-Time Tanpa Intervensi Manual
-          </h4>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-            Pada perilisan drop streetwear limited edition, kecepatan dan kepastian inventaris adalah prioritas utama. Sistem menggunakan arsitektur <em>Asynchronous Webhook Settlement</em> yang menghubungkan perbankan nasional, Payment Gateway, dan backend FOZZ dalam hitungan sub-detik (<code class="mono-text">&lt; 800ms</code>) dengan verifikasi tanda tangan kriptografis HMAC-SHA512.
-          </p>
-        </div>
-
-        <!-- 6-Stage Flow Diagram Cards -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-          <!-- Step 1 -->
-          <div class="flow-step-card">
-            <div class="flow-step-number">1</div>
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem;">Checkout &amp; Token Inisiasi</h5>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-              Customer checkout, record terbit di tabel <code class="mono-text">orders</code> dengan status <span class="status-pill status-pending" style="font-size: 0.65rem;">Pending</span> (TTL 15 menit). Backend FOZZ meminta token tagihan via <code class="mono-text">POST /v1/charge</code> ke Payment Gateway.
-            </p>
-          </div>
-
-          <!-- Step 2 -->
-          <div class="flow-step-card">
-            <div class="flow-step-number">2</div>
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem;">Generate Token &amp; Payload</h5>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-              Gateway berinteraksi dengan Switch Perbankan (ASPI / Core Banking) untuk menerbitkan QRIS Dinamis (EMVCo Single-Use) atau nomor Virtual Account unik dengan nominal terkunci.
-            </p>
-          </div>
-
-          <!-- Step 3 -->
-          <div class="flow-step-card">
-            <div class="flow-step-number">3</div>
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem;">Real-Time Standby &amp; Push</h5>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-              Browser customer menampilkan QR / nomor VA dan membuka saluran listening (WebSocket / Server-Sent Events / Long Polling) untuk mendeteksi event pelunasan tanpa perlu refresh halaman manual.
-            </p>
-          </div>
-
-          <!-- Step 4 -->
-          <div class="flow-step-card">
-            <div class="flow-step-number">4</div>
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem;">Eksekusi Nasabah &amp; Clearing</h5>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-              Customer memindai QRIS via m-banking / e-wallet atau mentransfer ke Virtual Account. Jaringan perbankan (BI-FAST / GPN / Switch) memvalidasi saldo dan menyelesaikan kliring dana seketika.
-            </p>
-          </div>
-
-          <!-- Step 5 -->
-          <div class="flow-step-card">
-            <div class="flow-step-number">5</div>
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem;">Webhook Callback &amp; Crypto</h5>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-              Gateway menembakkan HTTP POST ke endpoint FOZZ (<code class="mono-text">/api/webhooks</code>) membawa header <code class="mono-text">X-Signature: HMAC-SHA512</code>. Backend memverifikasi otentisitas payload dan mencegah duplicate replay.
-            </p>
-          </div>
-
-          <!-- Step 6 -->
-          <div class="flow-step-card">
-            <div class="flow-step-number">6</div>
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem;">Atomic Trigger &amp; UI Sync</h5>
-            <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
-              Status pesanan bergeser ke <span class="status-pill status-paid" style="font-size: 0.65rem;">Paid</span> dalam transaksi database atomik. Trigger PostgreSQL seketika memotong stok <code class="mono-text">product_sizes</code> dan UI customer otomatis berganti status Paid.
-            </p>
-          </div>
-        </div>
-
-        <!-- Security & Concurrency Guarantees -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-          <div class="stat-card" style="padding: 1.15rem;">
-            <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              Zero-Trust Signature &amp; Idempotensi
-            </h4>
-            <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
-              Setiap payload webhook divalidasi dengan formula:
-              <br><code class="mono-text" style="display: block; background: var(--bg-muted); padding: 0.4rem; border-radius: 3px; margin: 0.4rem 0;">SHA512(order_id + status_code + gross_amount + ServerKey)</code>
-              Jika signature berbeda 1 bit saja, request ditolak HTTP 401. Setiap request juga diperiksa terhadap <code class="mono-text">idempotency_key</code> untuk mencegah pemotongan stok ganda akibat webhook retry.
-            </p>
-          </div>
-
-          <div class="stat-card" style="padding: 1.15rem;">
-            <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-              Proteksi Race Condition &amp; Concurrency
-            </h4>
-            <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
-              Saat drop langka diperebutkan ribuan user, backend menerapkan <strong>Row-Level Locking</strong> (<code class="mono-text">SELECT ... FOR UPDATE</code>). Jika user tidak melunasi dalam 15 menit (TTL expired), background worker otomatis membatalkan order dan mengembalikan alokasi kuota ke etalase publik.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB 2 CONTENT: QRIS DINAMIS AUTOMATIC VALIDATION -->
-      <div id="arch-content-qris" class="arch-tab-content" style="display: none;">
-        <div style="background: rgba(16, 185, 129, 0.08); border: 1.5px solid var(--accent-green); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.25rem;">
-          <h4 style="color: var(--accent-green); font-size: 0.95rem; margin-bottom: 0.4rem;">
-            Standar EMVCo &amp; ASPI: Mengapa QRIS Dinamis Otomatis 100% Anti-Distorsi?
-          </h4>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-            Berbeda dengan <em>QRIS Statis</em> (cetakan stiker) yang mengharuskan pembeli mengetik nominal sendiri secara manual (rentan salah transfer atau manipulasi bukti transfer palsu), <strong>QRIS Dinamis (Point of Initiation Method = 12)</strong> mengunci nominal tagihan pesanan, invoice ID, dan checksum integritas data ke dalam kode QR unik yang langsung terbaca oleh aplikasi mobile banking / e-wallet mana pun di Indonesia.
-          </p>
-        </div>
-
-        <!-- EMVCo Tag Breakdown Table -->
-        <h4 style="font-size: 0.9rem; margin-bottom: 0.4rem;">Spesifikasi Tag Payload EMVCo QRIS Dinamis FOZZ.CO:</h4>
-        <div style="overflow-x: auto; margin-bottom: 1.5rem;">
-          <table class="tag-spec-table">
-            <thead>
-              <tr>
-                <th style="width: 70px;">Tag</th>
-                <th style="width: 140px;">Nama Atribut</th>
-                <th style="width: 160px;">Nilai / Format</th>
-                <th>Fungsi Validasi Otomatis</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span class="tag-pill">00</span></td>
-                <td>Payload Format</td>
-                <td><code class="mono-text">01</code></td>
-                <td>Menentukan format standar EMVCo QR versi 1.0 yang diakui Bank Indonesia.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">01</span></td>
-                <td><strong>Point of Initiation</strong></td>
-                <td><code class="mono-text" style="color: var(--accent-red); font-weight: 800;">12 (Dynamic)</code></td>
-                <td><strong>KUNCI VALIDASI:</strong> Memberitahu m-banking bahwa QR ini berlaku <em>single-use</em> dan nominal tagihan dikunci mutlak dari merchant.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">26</span></td>
-                <td>Merchant Account</td>
-                <td><code class="mono-text">ID.CO.FOZZ.WWW</code></td>
-                <td>NMID unik nasional FOZZ (<code class="mono-text">ID1020268800912</code>) terdaftar di National Merchant Repository ASPI.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">52</span></td>
-                <td>MCC</td>
-                <td><code class="mono-text">5691</code></td>
-                <td>Merchant Category Code: Pakaian pria &amp; streetwear berlisensi resmi.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">53</span></td>
-                <td>Transaction Currency</td>
-                <td><code class="mono-text">360 (IDR)</code></td>
-                <td>Kode mata uang Rupiah standar ISO 4217.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">54</span></td>
-                <td><strong>Transaction Amount</strong></td>
-                <td><code class="mono-text" style="color: var(--accent-red); font-weight: 800;">919000 (Exact Total)</code></td>
-                <td><strong>NOMINAL TERKUNCI:</strong> Aplikasi nasabah tidak mengizinkan pengubahan angka—mencegah underpayment atau overpayment.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">58</span></td>
-                <td>Country Code</td>
-                <td><code class="mono-text">ID</code></td>
-                <td>Negara yurisdiksi Republik Indonesia.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">59</span></td>
-                <td>Merchant Name</td>
-                <td><code class="mono-text">FOZZ STREETWEAR HQ</code></td>
-                <td>Nama resmi merchant yang tampil di layar konfirmasi nasabah.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">62</span></td>
-                <td>Additional Data</td>
-                <td><code class="mono-text">0110ord-882109</code></td>
-                <td>Mengikat nomor order unik FOZZ agar settlement gateway langsung mengenali order ID target.</td>
-              </tr>
-              <tr>
-                <td><span class="tag-pill">63</span></td>
-                <td><strong>CRC16 Checksum</strong></td>
-                <td><code class="mono-text">4 Hex Characters</code></td>
-                <td>Algoritma polinominal <strong>CRC-16-CCITT</strong> yang memverifikasi integritas bit payload dari manipulasi jaringan.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="stat-card" style="padding: 1rem;">
-          <h5 style="color: var(--accent-red); font-size: 0.85rem; margin-bottom: 0.35rem;">Bagaimana Settlement Berjalan Otomatis?</h5>
-          <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;">
-            Ketika customer menekan "Konfirmasi Bayar" di aplikasi mobile perbankan (BCA Mobile, Livin Mandiri, GoPay, OVO), switch ASPI meneruskan dana ke escrow Payment Gateway. Dalam waktu <code class="mono-text">&lt; 1 detik</code>, gateway membunyikan webhook callback ke server FOZZ. Karena payload memuat <code class="mono-text">order_id</code> yang presisi, sistem tidak membutuhkan mutasi rekening bank manual atau upload struk kertas.
-          </p>
-        </div>
-      </div>
-
-      <!-- TAB 3 CONTENT: VIRTUAL ACCOUNT AUTOMATIC VALIDATION -->
-      <div id="arch-content-va" class="arch-tab-content" style="display: none;">
-        <div style="background: rgba(37, 99, 235, 0.08); border: 1.5px solid var(--accent-blue); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.25rem;">
-          <h4 style="color: var(--accent-blue); font-size: 0.95rem; margin-bottom: 0.4rem;">
-            Prinsip Closed/Fixed Amount Virtual Account &amp; Core Banking Switching
-          </h4>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-            FOZZ.CO mengimplementasikan <strong>Closed Virtual Account (Fixed VA)</strong> yang secara eksklusif dikaitkan dengan satu nomor pesanan dan satu jumlah tagihan pasti. Core banking switch menolak transfer jika nasabah memasukkan nominal yang tidak sesuai, menjamin akurasi rekonsiliasi 100%.
-          </p>
-        </div>
-
-        <!-- VA Structure Breakdown -->
-        <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Anatomi Nomor 16-Digit Virtual Account:</h4>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-          <div style="background: var(--bg-muted); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem;">
-            <span class="mono-text" style="font-size: 1.15rem; font-weight: 800; color: var(--accent-blue); display: block; margin-bottom: 0.35rem;">
-              [88012] - [08123456789]
-            </span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">
-              <strong>Digit 1 - 5:</strong> Company Identification Prefix (BCA: <code class="mono-text">88012</code>, Mandiri: <code class="mono-text">89901</code>, BRI: <code class="mono-text">10234</code>, BNI: <code class="mono-text">98811</code>).
-            </span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.25rem;">
-              <strong>Digit 6 - 16:</strong> Unique Customer / Order Identifier yang di-generate sistem secara idempotent.
-            </span>
-          </div>
-
-          <div style="background: var(--bg-muted); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem;">
-            <h5 style="font-size: 0.85rem; margin-bottom: 0.35rem; color: var(--text-primary);">Mekanisme Inquiry &amp; Payment (BI-SNAP):</h5>
-            <div style="font-size: 0.74rem; color: var(--text-secondary); line-height: 1.5;">
-              <strong>1. Phase Inquiry:</strong> Saat nasabah memasukkan VA di ATM/m-banking, bank mengirimkan API Inquiry ke Gateway. Gateway mengembalikan nama penerima (<code class="mono-text">FOZZ - NAMA NASABAH</code>) dan total harga pasti.<br>
-              <strong>2. Phase Payment Notification:</strong> Begitu dana didebit, Core Banking memancarkan notifikasi ISO 8583 / REST JSON ke gateway yang langsung memicu webhook ke server FOZZ.
-            </div>
-          </div>
-        </div>
-
-        <!-- Automated Reconciliation Lifecycle -->
-        <div class="stat-card" style="padding: 1.25rem;">
-          <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-primary);">4 Lapisan Validasi Otomatis Webhook Virtual Account:</h4>
-          <ol style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.7; padding-left: 1.25rem;">
-            <li><strong>Verifikasi Tanda Tangan:</strong> Menghitung ulang hash HMAC-SHA512 dari <code class="mono-text">order_id + status_code + gross_amount + server_key</code> untuk memastikan request benar-benar berasal dari aggregator perbankan, bukan penyerang luar.</li>
-            <li><strong>Idempotency Lock:</strong> Menyimpan <code class="mono-text">transaction_id</code> ke dalam cache database. Jika bank mengirim callback berulang (karena network latency retry), callback kedua langsung direspons HTTP 200 tanpa memproses ulang transaksi.</li>
-            <li><strong>Cross-Check Nilai Tagihan:</strong> Memverifikasi bahwa <code class="mono-text">gross_amount</code> callback cocok 100% dengan <code class="mono-text">orders.total_harga</code>.</li>
-            <li><strong>Commit Transaksi Atomik:</strong> Menjalankan fungsi SQL transaksional untuk memindahkan status pesanan ke <code class="mono-text">'Paid'</code> dan memicu pemotongan inventaris secara langsung.</li>
-          </ol>
-        </div>
-      </div>
-
-      <!-- TAB 4 CONTENT: RELATIONAL DATABASE & ATOMIC TRIGGER -->
-      <div id="arch-content-db" class="arch-tab-content" style="display: none;">
-        <!-- Supabase Cloud Live Connection Status Banner -->
-        <div style="background: rgba(16, 185, 129, 0.08); border: 1.5px solid #10b981; border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-          <div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
-              <span class="badge-tag" style="background: #10b981; color: #fff; font-weight: 800;">SUPABASE CLOUD POSTGRESQL</span>
-              <span class="supabase-status-indicator" style="font-size: 0.72rem; padding: 0.2rem 0.5rem; border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 4px; font-weight: 600;">Status: Menghubungkan...</span>
-            </div>
-            <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5;">
-              REST Endpoint: <code class="mono-text" style="color: #10b981;">https://omwjweeudimxisqffiki.supabase.co</code><br>
-              Auth Specs: <code class="mono-text">JWT / JWKS RFC-7517 Key Rotation</code>
-            </div>
-          </div>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <button class="role-btn" onclick="app.copySupabaseSql()" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; background: var(--bg-surface);">
-              📋 Salin Skema SQL
-            </button>
-            <button class="role-btn" onclick="DB.syncFromSupabase(); app.showToast('Menyinkronkan data dengan Supabase...', 'info');" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; background: var(--bg-surface);">
-              🔄 Sinkronkan Cloud
-            </button>
-          </div>
-        </div>
-        <!-- Relational Flow Banner -->
-        <div style="background: rgba(255, 51, 75, 0.08); border: 1px solid rgba(255, 51, 75, 0.3); border-radius: var(--radius-sm); padding: 1.25rem; margin-bottom: 1.25rem;">
-          <h4 style="color: var(--accent-red); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
-            Trigger Atomik Pemotongan Stok (Zero Overselling Guarantee)
-          </h4>
-          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-            Saat checkout, record induk otomatis tercatat di <code class="mono-text">orders</code> untuk mengikat data tagihan dan logistik. Rincian artikel diproteksi di <code class="mono-text">order_items</code> dengan harga terkunci (anti-distorsi harga). Begitu webhook payment gateway memverifikasi pelunasan dan mengubah status pesanan ke <span class="status-pill status-paid">Paid</span>, trigger atomik PostgreSQL seketika memotong kuota di <code class="mono-text">product_sizes</code>.
-          </p>
-        </div>
-
-        <!-- PostgreSQL Atomic Trigger Code Preview -->
-        <div style="background: #090a0f; color: #cbd5e1; border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.5; margin-bottom: 1.25rem; overflow-x: auto;">
-          <span style="color: #94a3b8;">-- Trigger Otomatis Pemotongan Stok saat Settlement Berhasil</span><br>
-          <span style="color: #f43f5e;">CREATE OR REPLACE FUNCTION</span> deduct_stock_on_order_paid()<br>
-          <span style="color: #f43f5e;">RETURNS TRIGGER AS</span> $$<br>
-          <span style="color: #f43f5e;">BEGIN</span><br>
-          &nbsp;&nbsp;<span style="color: #38bdf8;">IF</span> (NEW.status_pesanan = <span style="color: #34d399;">'Paid'</span> <span style="color: #38bdf8;">AND</span> OLD.status_pesanan = <span style="color: #34d399;">'Pending'</span>) <span style="color: #38bdf8;">THEN</span><br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #38bdf8;">UPDATE</span> product_sizes ps<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #38bdf8;">SET</span> stok = ps.stok - oi.jumlah<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #38bdf8;">FROM</span> order_items oi<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #38bdf8;">WHERE</span> oi.order_id = NEW.id<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #38bdf8;">AND</span> ps.product_id = oi.product_id<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #38bdf8;">AND</span> ps.ukuran = oi.ukuran;<br>
-          &nbsp;&nbsp;<span style="color: #38bdf8;">END IF;</span><br>
-          &nbsp;&nbsp;<span style="color: #38bdf8;">RETURN</span> NEW;<br>
-          <span style="color: #f43f5e;">END;</span><br>
-          $$ <span style="color: #f43f5e;">LANGUAGE</span> plpgsql;
-        </div>
-
-        <!-- 5 Database Tables Breakdown -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-          <!-- 1. Users Table -->
-          <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">1. Tabel users</h4>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.6;">
-              - id (UUID / PK)<br>
-              - nama_lengkap (Varchar)<br>
-              - email (Varchar, UNIQUE)<br>
-              - password_hash (Varchar, Argon2/Bcrypt)<br>
-              - role ('admin' | 'customer')<br>
-              - no_telepon (Varchar)<br>
-              - created_at (Timestamp)
-            </div>
-          </div>
-
-          <!-- 2. Products Table -->
-          <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">2. Tabel products</h4>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.6;">
-              - id (UUID / PK)<br>
-              - nama_produk (Varchar)<br>
-              - deskripsi (Text - material, fitting)<br>
-              - harga (Numeric - ritel IDR)<br>
-              - kategori (Varchar: Outerwear, Hoodie...)<br>
-              - gambar_url (Varchar HD)
-            </div>
-          </div>
-
-          <!-- 3. Product Sizes Table -->
-          <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">3. Tabel product_sizes</h4>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.6;">
-              - id (UUID / PK)<br>
-              - product_id (UUID, FK -> products.id)<br>
-              - ukuran (Varchar: S, M, L, XL)<br>
-              - stok (Integer - dikurangi atomik saat Paid)
-            </div>
-          </div>
-
-          <!-- 4. Orders Table (With Payment Metadata) -->
-          <div class="stat-card" style="padding: 1rem;">
-            <h4 style="color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">4. Tabel orders</h4>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.6;">
-              - id (UUID / PK - Referensi pesanan)<br>
-              - user_id (UUID, FK -> users.id)<br>
-              - total_harga (Numeric - total tagihan)<br>
-              - status_pesanan (Pending, Paid, Shipped...)<br>
-              - payment_method (qris, va_bca, etc)<br>
-              - payment_status (pending, settled)<br>
-              - transaction_id (Varchar Gateway Trx)<br>
-              - resi_pengiriman (Varchar, input HQ)<br>
-              - created_at (Timestamp)
-            </div>
-          </div>
-
-          <!-- 5. Order Items Table -->
-          <div class="stat-card" style="padding: 1rem; grid-column: span 2;">
-            <h4 style="color: var(--text-primary); font-size: 0.9rem; margin-bottom: 0.4rem;">5. Tabel order_items</h4>
-            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); line-height: 1.6;">
-              - id (UUID / PK)<br>
-              - order_id (UUID, FK -> orders.id)<br>
-              - product_id (UUID, FK -> products.id)<br>
-              - jumlah (Integer - kuantitas potong)<br>
-              - harga_satuan (Numeric - harga dikunci saat inisiasi transaksi, anti-distorsi harga)
-            </div>
           </div>
         </div>
       </div>
@@ -2035,67 +1260,6 @@
       <button type="button" class="btn-primary" style="width: 100%; justify-content: center;" onclick="app.closeModal('size-guide-modal')">
         Tutup Panduan Ukuran
       </button>
-    </div>
-  </div>
-
-  <!-- OFFICIAL ADMIN LOGIN MODAL -->
-  <div class="modal-overlay" id="admin-login-modal">
-    <div class="modal-content" style="max-width: 440px; padding: 2rem;">
-      <button class="modal-close-btn" onclick="app.closeModal('admin-login-modal')">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
-
-      <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.25rem;">
-        <div class="badge-tag" style="background: var(--accent-red); color: #fff; margin-bottom: 0.4rem; display: inline-block;">RESTRICTED AREA</div>
-        <h2 style="font-size: 1.35rem; font-family: var(--font-heading); margin-bottom: 0.25rem;">FOZZ HQ // ADMIN GATE</h2>
-        <p style="font-size: 0.8rem; color: var(--text-muted);">Zero-Trust Administrator Authentication</p>
-      </div>
-
-      <div style="background: var(--bg-muted); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem 0.9rem; margin-bottom: 1.25rem; font-size: 0.78rem;">
-        <div style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--accent-red); margin-bottom: 0.25rem;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          <span>AKSES KHUSUS ADMINISTRATOR</span>
-        </div>
-        <div style="color: var(--text-secondary); line-height: 1.4;">
-          Halaman ini terproteksi Zero-Trust RBAC. Masukkan kredensial administrator HQ untuk membuka kontrol inventaris, order fulfillment, dan tiket RMA.
-        </div>
-      </div>
-
-      <form id="admin-login-form" onsubmit="app.handleAdminLogin(event)">
-        <div style="margin-bottom: 1rem;">
-          <label style="display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.04em;">Email Admin</label>
-          <input type="email" id="admin-login-email" placeholder="admin@fozz.co" required style="width: 100%;">
-        </div>
-
-        <div style="margin-bottom: 1.25rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-            <label style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">Password</label>
-            <button type="button" onclick="app.toggleAdminPasswordVisibility()" style="background: none; border: none; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 0;">
-              <span id="admin-pass-toggle-icon">👁️</span>
-              <span id="admin-pass-toggle-text" style="font-size: 0.7rem; font-weight: 600;">Lihat</span>
-            </button>
-          </div>
-          <input type="password" id="admin-login-password" placeholder="Masukkan password admin (admin123)" required style="width: 100%;">
-        </div>
-
-        <div id="admin-login-error" style="display: none; background: rgba(255, 51, 75, 0.1); border: 1.5px solid var(--accent-red); border-radius: var(--radius-sm); padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--accent-red); margin-bottom: 1rem; font-weight: 600;">
-          <!-- Error text -->
-        </div>
-
-        <!-- Quick demo credentials shortcut -->
-        <div style="background: var(--bg-subtle); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 0.6rem 0.75rem; margin-bottom: 1.25rem; font-size: 0.74rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: var(--text-muted);">Demo Admin: <code class="mono-text" style="color: var(--text-primary);">admin@fozz.co</code></span>
-          <button type="button" class="role-btn" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;" onclick="app.fillDemoAdminCreds()">Isi Otomatis</button>
-        </div>
-
-        <div style="display: flex; gap: 0.75rem;">
-          <button type="button" class="btn-secondary" style="flex: 1; justify-content: center;" onclick="app.closeModal('admin-login-modal')">Batal</button>
-          <button type="submit" class="btn-primary" style="flex: 2; justify-content: center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-            Autentikasi & Masuk
-          </button>
-        </div>
-      </form>
     </div>
   </div>
 

@@ -18,6 +18,7 @@ class FozzApp {
 
   init() {
     this.initTheme();
+    this.checkDebugBarVisibility();
     this.initRouting();
     this.updateUserUI();
     this.renderCatalog();
@@ -33,9 +34,10 @@ class FozzApp {
       }
     });
 
-    // Otomatis tutup menu mobile jika viewport di-resize ke ukuran desktop
+    // Otomatis tutup menu mobile jika viewport di-resize ke ukuran desktop & perbarui status bar debug
     window.addEventListener('resize', () => {
-      if (window.innerWidth > 992) {
+      this.checkDebugBarVisibility();
+      if (window.innerWidth > 1024) {
         this.toggleMobileMenu(false);
       }
     });
@@ -52,6 +54,36 @@ class FozzApp {
         this.renderAdminReturns();
       }
     });
+  }
+
+  // Debug Bar Controller: otomatis sembunyikan di mobile/tablet & layar sentuh
+  checkDebugBarVisibility() {
+    const isMobileDevice = window.innerWidth <= 1024 ||
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) ||
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isDismissed = sessionStorage.getItem('fozz_hide_debug_bar') === 'true';
+
+    const roleBar = document.getElementById('role-bar');
+    if (roleBar) {
+      if (isMobileDevice || isDismissed) {
+        roleBar.style.display = 'none';
+        roleBar.setAttribute('aria-hidden', 'true');
+      } else {
+        roleBar.style.display = 'flex';
+        roleBar.removeAttribute('aria-hidden');
+      }
+    }
+  }
+
+  dismissDebugBar() {
+    const roleBar = document.getElementById('role-bar');
+    if (roleBar) {
+      roleBar.style.display = 'none';
+      roleBar.setAttribute('aria-hidden', 'true');
+    }
+    sessionStorage.setItem('fozz_hide_debug_bar', 'true');
+    this.showToast('Bar debug disembunyikan.', 'info');
   }
 
   // Theme Management (Default: Ramah & Hangat / Friendly Warm Light)
@@ -136,7 +168,12 @@ class FozzApp {
 
   handleRouting() {
     const hash = window.location.hash;
+    const isStandaloneAdmin = window.location.pathname.endsWith('admin.html');
     if (hash === '#admin' || hash === '#/admin' || window.location.pathname === '/admin') {
+      if (!isStandaloneAdmin) {
+        window.location.href = 'admin.html';
+        return;
+      }
       const user = DB.getCurrentUser();
       const isAdminAuthenticated = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
       if (user && user.role === 'admin' && isAdminAuthenticated) {
@@ -146,20 +183,15 @@ class FozzApp {
         this.openAdminLoginModal();
       }
     } else {
-      this.showCustomerView();
+      if (!isStandaloneAdmin) {
+        this.showCustomerView();
+      }
     }
   }
 
   requestAdminAccess(event) {
     if (event) event.preventDefault();
-    const user = DB.getCurrentUser();
-    const isAdminAuthenticated = sessionStorage.getItem('fozz_admin_authenticated') === 'true';
-    if (user && user.role === 'admin' && isAdminAuthenticated) {
-      window.location.hash = '#admin';
-      this.showAdminView();
-    } else {
-      this.openAdminLoginModal();
-    }
+    window.location.href = 'admin.html';
   }
 
   openAdminLoginModal() {
