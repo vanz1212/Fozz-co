@@ -261,8 +261,10 @@ class FozzDatabase {
     if (!localStorage.getItem(STORAGE_KEYS.RETURNS)) {
       localStorage.setItem(STORAGE_KEYS.RETURNS, JSON.stringify(SEED_RETURNS));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(SEED_USERS[1]));
+    // Default: pembeli umum belum login (null) sehingga navbar menampilkan 'Masuk / Daftar'
+    const storedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    if (!storedUser || storedUser === JSON.stringify(SEED_USERS[1])) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(null));
     }
   }
 
@@ -436,7 +438,13 @@ class FozzDatabase {
   }
 
   getCurrentUser() {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.CURRENT_USER) || 'null');
+    const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    if (!raw || raw === 'null' || raw === 'undefined') return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
   }
 
   setCurrentUser(user) {

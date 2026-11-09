@@ -3281,44 +3281,6 @@ h1, h2, h3, h4, h5, h6 {
   100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
 }
 
-/* Architecture Modal Tabs Navigation */
-.arch-tab-nav {
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.5rem;
-  overflow-x: auto;
-}
-
-.arch-tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 1rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid transparent;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--transition-fast);
-}
-
-.arch-tab-btn:hover {
-  background: var(--bg-subtle);
-  color: var(--text-primary);
-}
-
-.arch-tab-btn.active {
-  background: var(--text-primary);
-  color: var(--bg-primary);
-  border-color: var(--border-color);
-  box-shadow: var(--shadow-sm);
-}
-
 /* Real-Time Payment Gateway Interactive Modal */
 .gateway-header {
   display: flex;
@@ -3474,54 +3436,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .copy-action-btn:hover {
   opacity: 0.9;
-}
-
-/* Terminal / Webhook Inspector */
-.webhook-terminal {
-  background: #090a0f;
-  color: #38bdf8;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 1rem;
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  line-height: 1.55;
-  box-shadow: var(--shadow-sm);
-  max-height: 220px;
-  overflow-y: auto;
-  position: relative;
-}
-
-.webhook-terminal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #1e293b;
-  padding-bottom: 0.5rem;
-  margin-bottom: 0.65rem;
-  color: #94a3b8;
-  font-size: 0.7rem;
-}
-
-.terminal-line {
-  margin-bottom: 0.25rem;
-  word-break: break-all;
-}
-
-.terminal-line.success {
-  color: #34d399;
-}
-
-.terminal-line.warn {
-  color: #fbbf24;
-}
-
-.terminal-line.accent {
-  color: #f43f5e;
-}
-
-.terminal-line.meta {
-  color: #94a3b8;
 }
 
 /* Flowchart Step Box */

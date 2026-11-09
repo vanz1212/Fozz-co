@@ -237,19 +237,6 @@ class FozzApp {
     }
   }
 
-  fillDemoAdminCreds() {
-    const emailInput = document.getElementById('admin-login-email');
-    const passInput = document.getElementById('admin-login-password');
-    const errorEl = document.getElementById('admin-login-error');
-    if (emailInput) emailInput.value = 'admin@fozz.co';
-    if (passInput) passInput.value = 'admin123';
-    if (errorEl) {
-      errorEl.style.display = 'none';
-      errorEl.textContent = '';
-    }
-    this.showToast('Kredensial demo terisi (admin@fozz.co / admin123). Klik Autentikasi untuk masuk.', 'info');
-  }
-
   handleAdminLogin(event) {
     event.preventDefault();
     const emailInput = document.getElementById('admin-login-email');
@@ -409,13 +396,22 @@ class FozzApp {
     const currentUser = DB.getCurrentUser();
     const navName = document.getElementById('nav-user-name');
     const mobileNavName = document.getElementById('mobile-nav-user-name');
+    const mobileLabel = document.getElementById('mobile-user-panel-label');
     const roleLabel = document.getElementById('role-label');
 
-    if (currentUser) {
+    if (currentUser && currentUser.nama_lengkap) {
       if (navName) navName.textContent = currentUser.nama_lengkap;
       if (mobileNavName) mobileNavName.textContent = currentUser.nama_lengkap;
+      if (mobileLabel) mobileLabel.textContent = 'PELANGGAN AKTIF';
       if (roleLabel) {
         roleLabel.textContent = `${currentUser.role === 'admin' ? 'ADMIN HQ' : 'CUSTOMER'}: ${currentUser.nama_lengkap}`;
+      }
+    } else {
+      if (navName) navName.textContent = 'Masuk / Daftar';
+      if (mobileNavName) mobileNavName.textContent = 'Masuk / Daftar';
+      if (mobileLabel) mobileLabel.textContent = 'AKUN PELANGGAN';
+      if (roleLabel) {
+        roleLabel.textContent = 'PEMBELI UMUM';
       }
     }
   }
@@ -970,7 +966,8 @@ class FozzApp {
     // 1. Relational Order Inisiasi berstatus 'Pending' (TTL 15 Menit)
     // 2. Line items terkunci di `order_items` (anti-distorsi harga)
     // 3. Masuk ke Payment Gateway Engine untuk penyelesaian transaksi real-time
-    const newOrder = DB.createOrder(currentUser.id, cart, address, courier, 20000, "Pending", paymentMethod);
+    const userId = currentUser ? currentUser.id : 'usr-cust-001';
+    const newOrder = DB.createOrder(userId, cart, address, courier, 20000, "Pending", paymentMethod);
 
     this.closeModal('checkout-modal');
     this.updateCartBadges();
@@ -1020,9 +1017,6 @@ class FozzApp {
     // Start Expiration Timer (15 Minutes countdown)
     this.startGatewayCountdown(order);
 
-    // Initialize Terminal Logs
-    this.initGatewayTerminal(order);
-
     this.openModal('payment-gateway-modal');
   }
 
@@ -1065,53 +1059,24 @@ class FozzApp {
     this.gatewayCountdownInterval = setInterval(updateTimer, 1000);
   }
 
-  initGatewayTerminal(order) {
-    const logsBody = document.getElementById('gateway-logs-body');
-    const clock = document.getElementById('gateway-terminal-clock');
-    if (clock) clock.textContent = new Date().toLocaleTimeString('id-ID');
-
-    if (!logsBody) return;
-    logsBody.innerHTML = `
-      <div class="terminal-line meta">[SYSTEM] Initializing Zero-Trust TLS 1.3 Channel...</div>
-      <div class="terminal-line">[GATEWAY] POST /v1/charge HTTP/2 &bull; Status: 201 Created</div>
-      <div class="terminal-line">[PAYLOAD] Token Ref: <span style="color:#f43f5e;">${order.transaction_id || 'TRX-PG-INIT'}</span> &bull; TTL: 900s</div>
-      <div class="terminal-line">[NETWORK] Listening on wss://gateway.fozz.co/events/${order.id}...</div>
-      <div class="terminal-line warn">[STANDBY] Menunggu konfirmasi pembayaran dari nasabah / aggregator...</div>
-    `;
-  }
-
-  appendTerminalLog(message, type = '') {
-    const logsBody = document.getElementById('gateway-logs-body');
-    if (!logsBody) return;
-    const line = document.createElement('div');
-    line.className = `terminal-line ${type}`;
-    line.innerHTML = message;
-    logsBody.appendChild(line);
-    const terminal = document.getElementById('gateway-terminal-logs');
-    if (terminal) terminal.scrollTop = terminal.scrollHeight;
-  }
-
   renderPaymentInstrument(order) {
     const container = document.getElementById('gateway-instrument-container');
     if (!container) return;
 
     if (order.status_pesanan === 'Paid') {
       container.innerHTML = `
-        <div style="background: rgba(16, 185, 129, 0.08); border: 2px solid var(--accent-green); border-radius: var(--radius-md); padding: 2rem; text-align: center;">
-          <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--accent-green); color: #fff; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.75rem;">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <div style="background: rgba(16, 185, 129, 0.08); border: 2px solid var(--accent-green); border-radius: var(--radius-md); padding: 2.25rem 1.5rem; text-align: center;">
+          <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--accent-green); color: #fff; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.85rem; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
           </div>
-          <h3 style="font-size: 1.35rem; color: var(--accent-green); margin-bottom: 0.35rem;">Pembayaran Terverifikasi Real-Time!</h3>
-          <p style="font-size: 0.85rem; color: var(--text-secondary); max-width: 500px; margin: 0 auto 1.25rem;">
-            Signature HMAC-SHA512 telah diverifikasi. Trigger atomik PostgreSQL telah memotong stok di <code class="mono-text">product_sizes</code> dan pesanan telah diteruskan ke tim gudang FOZZ HQ.
+          <h3 style="font-size: 1.4rem; color: var(--accent-green); margin-bottom: 0.4rem;">Pembayaran Berhasil Dikonfirmasi!</h3>
+          <p style="font-size: 0.88rem; color: var(--text-secondary); max-width: 460px; margin: 0 auto 1.5rem; line-height: 1.5;">
+            Terima kasih! Pembayaran Anda telah kami terima secara otomatis. Stok produk Anda telah diamankan dan pesanan Anda sedang disiapkan untuk pengiriman.
           </p>
           <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
             <button class="btn-primary" onclick="app.closePaymentGatewayModal(); app.openOrderHistory();">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-              Lacak Perjalanan Paket & Resi &rarr;
-            </button>
-            <button class="btn-secondary" onclick="app.closePaymentGatewayModal(); app.openSchemaModal('gateway');">
-              Bedah Arsitektur Gateway
+              Lacak Perjalanan Paket &amp; Resi &rarr;
             </button>
           </div>
         </div>
@@ -1200,17 +1165,6 @@ class FozzApp {
               <span class="payment-badge">ShopeePay</span>
               <span class="payment-badge">BCA Mobile</span>
               <span class="payment-badge">Livin'</span>
-            </div>
-          </div>
-
-          <!-- Raw EMVCo String Preview Accordion -->
-          <div style="text-align: left; background: var(--bg-muted); border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.25rem;">
-              <span>EMVCo Dynamic Payload:</span>
-              <button type="button" class="role-btn" style="padding: 0.15rem 0.4rem; font-size: 0.65rem;" onclick="app.copyToClipboard('${order.qris_payload}', this)">Salin Payload</button>
-            </div>
-            <div style="font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-secondary); word-break: break-all; max-height: 48px; overflow-y: auto;">
-              ${order.qris_payload || 'EMVCo.QRIS.FOZZ.HQ.PAYLOAD'}
             </div>
           </div>
 
@@ -1329,10 +1283,9 @@ class FozzApp {
     localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
 
     this.renderPaymentInstrument(order);
-    this.appendTerminalLog(`[ROUTING] Bank Switch changed to: <span style="color:#38bdf8;">${bankCode.toUpperCase()}</span> &bull; New VA: ${order.va_number}`, 'meta');
   }
 
-  // --- KONFIRMASI BAYAR: Processing Animation then Webhook Settlement ---
+  // --- KONFIRMASI BAYAR: Verifikasi Otomatis ---
   confirmPayment(orderId, instrumentType) {
     const btn = document.getElementById(`btn-confirm-pay-${instrumentType}`);
     if (!btn || btn.disabled) return;
@@ -1341,69 +1294,37 @@ class FozzApp {
     btn.disabled = true;
     btn.innerHTML = `
       <span class="spinner"></span>
-      Memproses Pembayaran...
+      Memverifikasi Pembayaran...
     `;
 
-    // Log the processing stage
-    this.appendTerminalLog(`[CLIENT] Konfirmasi Bayar ditekan — memproses ${instrumentType.toUpperCase()}...`, 'accent');
-
-    // Simulate brief processing delay, then trigger the real webhook settlement
     setTimeout(() => {
-      btn.innerHTML = `
-        <svg class="confirm-pay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        Pembayaran Diproses...
-      `;
       this.simulateWebhookPayment(orderId, instrumentType);
-    }, 600);
+    }, 700);
   }
 
   simulateWebhookPayment(orderId, instrumentType) {
     const order = DB.getOrders().find(o => o.id === orderId);
     if (!order) return;
 
-    // Visual sequence showing the real-time automated verification stages
-    this.appendTerminalLog(`[CLIENT] Triggering Simulated Customer Transfer (${instrumentType.toUpperCase()})...`, 'accent');
+    // Update status pesanan ke Paid
+    DB.updateOrderStatus(order.id, 'Paid', null, {
+      settlement_time: new Date().toISOString(),
+      signature_verified: true,
+      webhook_received: true
+    });
 
-    setTimeout(() => {
-      this.appendTerminalLog(`[AGGREGATOR] Network Clearing Switch (BI-FAST/ASPI): Transaction Authorized ✓`, 'success');
-    }, 200);
+    this.renderCatalog();
+    this.updateCartBadges();
 
-    setTimeout(() => {
-      this.appendTerminalLog(`[INBOUND WEBHOOK] HTTP 200 POST /api/webhooks/payment-gateway`, 'accent');
-      this.appendTerminalLog(`&nbsp;&nbsp;&bull; Payload: { order_id: "${order.id}", status: "settlement", gross_amount: ${order.total_harga} }`, 'meta');
-      this.appendTerminalLog(`&nbsp;&nbsp;&bull; Header X-Signature: HMAC-SHA512(<span style="color:#34d399;">VALIDATED_MATCH</span>)`, 'success');
-      this.appendTerminalLog(`&nbsp;&nbsp;&bull; Idempotency-Key Check: <span style="color:#34d399;">PASS (No Replay)</span>`, 'success');
-    }, 450);
+    const updatedOrder = DB.getOrders().find(o => o.id === orderId);
+    const statusPill = document.getElementById('gateway-order-status');
+    if (statusPill) {
+      statusPill.textContent = 'Paid';
+      statusPill.className = 'status-pill status-paid';
+    }
 
-    setTimeout(() => {
-      this.appendTerminalLog(`[DATABASE TRANSACTION] BEGIN;`, 'meta');
-      this.appendTerminalLog(`&nbsp;&nbsp;&bull; UPDATE orders SET status_pesanan = 'Paid' WHERE id = '${order.id}';`, 'meta');
-      this.appendTerminalLog(`&nbsp;&nbsp;&bull; <span style="color:#f43f5e; font-weight:800;">TRIGGER ATOMIK:</span> UPDATE product_sizes SET stok = stok - oi.jumlah;`, 'accent');
-      this.appendTerminalLog(`[DATABASE TRANSACTION] COMMIT; &bull; Stock locked permanently!`, 'success');
-
-      // Update database status
-      DB.updateOrderStatus(order.id, 'Paid', null, {
-        settlement_time: new Date().toISOString(),
-        signature_verified: true,
-        webhook_received: true
-      });
-
-      this.renderCatalog();
-      this.updateCartBadges();
-
-      // Broadcast real-time push to client UI
-      this.appendTerminalLog(`[REAL-TIME BROADCAST] WebSocket push -> Client UI State Updated to PAID!`, 'success');
-
-      const updatedOrder = DB.getOrders().find(o => o.id === orderId);
-      const statusPill = document.getElementById('gateway-order-status');
-      if (statusPill) {
-        statusPill.textContent = 'Paid';
-        statusPill.className = 'status-pill status-paid';
-      }
-
-      this.renderPaymentInstrument(updatedOrder);
-      this.showToast(`Pembayaran #${order.id} terverifikasi via Webhook real-time!`, 'success');
-    }, 850);
+    this.renderPaymentInstrument(updatedOrder);
+    this.showToast(`Pembayaran pesanan #${order.id} berhasil diverifikasi!`, 'success');
   }
 
   copyToClipboard(text, btnElement) {
@@ -1438,7 +1359,7 @@ class FozzApp {
     const currentUser = DB.getCurrentUser();
     const container = document.getElementById('order-history-container');
     const allOrders = DB.getOrders();
-    const myOrders = allOrders.filter(o => o.user_id === currentUser.id);
+    const myOrders = currentUser ? allOrders.filter(o => o.user_id === currentUser.id) : allOrders;
 
     if (myOrders.length === 0) {
       container.innerHTML = `
@@ -1568,41 +1489,111 @@ class FozzApp {
     this.showToast(`Order #${orderId} diselesaikan. Drop resmi diterima!`, 'success');
   }
 
-  // --- USER PROFILE ---
+  // --- USER PROFILE & AUTH (PEMBELI UMUM / MASUK / DAFTAR) ---
   openProfileModal() {
     this.toggleMobileMenu(false);
     const user = DB.getCurrentUser();
-    if (!user) return;
 
-    document.getElementById('profile-name').value = user.nama_lengkap;
-    document.getElementById('profile-email').value = user.email;
-    document.getElementById('profile-phone').value = user.no_telepon || '';
-    document.getElementById('profile-address').value = user.alamat_default || '';
+    const titleEl = document.getElementById('profile-modal-title');
+    const badgeEl = document.getElementById('profile-modal-badge');
+    const descEl = document.getElementById('profile-modal-desc');
+    const submitBtn = document.getElementById('btn-save-profile');
+    const logoutBtn = document.getElementById('btn-logout-customer');
+
+    const nameInput = document.getElementById('profile-name');
+    const emailInput = document.getElementById('profile-email');
+    const phoneInput = document.getElementById('profile-phone');
+    const addrInput = document.getElementById('profile-address');
+
+    if (!user) {
+      if (badgeEl) badgeEl.textContent = 'AKUN PELANGGAN';
+      if (titleEl) titleEl.textContent = 'Masuk / Daftar Akun';
+      if (descEl) descEl.textContent = 'Lengkapi identitas Anda untuk kemudahan pelacakan pesanan, riwayat belanja, dan pengiriman.';
+      if (nameInput) nameInput.value = '';
+      if (emailInput) {
+        emailInput.value = '';
+        emailInput.removeAttribute('readonly');
+      }
+      if (phoneInput) phoneInput.value = '';
+      if (addrInput) addrInput.value = '';
+      if (submitBtn) submitBtn.textContent = 'Masuk / Simpan Akun';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    } else {
+      if (badgeEl) badgeEl.textContent = 'PROFIL AKTIF';
+      if (titleEl) titleEl.textContent = 'Informasi Akun';
+      if (descEl) descEl.textContent = 'Kelola informasi identitas dan alamat pengiriman Anda.';
+      if (nameInput) nameInput.value = user.nama_lengkap || '';
+      if (emailInput) {
+        emailInput.value = user.email || '';
+        emailInput.removeAttribute('readonly');
+      }
+      if (phoneInput) phoneInput.value = user.no_telepon || '';
+      if (addrInput) addrInput.value = user.alamat_default || '';
+      if (submitBtn) submitBtn.textContent = 'Simpan Perubahan';
+      if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    }
 
     this.openModal('user-profile-modal');
   }
 
   saveProfile(event) {
     event.preventDefault();
-    const user = DB.getCurrentUser();
-    if (!user) return;
+    let user = DB.getCurrentUser();
+    const name = document.getElementById('profile-name').value.trim();
+    const email = document.getElementById('profile-email').value.trim();
+    const phone = document.getElementById('profile-phone').value.trim();
+    const address = document.getElementById('profile-address').value.trim();
 
-    user.nama_lengkap = document.getElementById('profile-name').value;
-    user.no_telepon = document.getElementById('profile-phone').value;
-    user.alamat_default = document.getElementById('profile-address').value;
-
-    // Update in users table
-    const users = DB.getUsers();
-    const idx = users.findIndex(u => u.id === user.id);
-    if (idx !== -1) {
-      users[idx] = user;
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    if (!name || !email) {
+      this.showToast('Nama lengkap dan email wajib diisi.', 'warn');
+      return;
     }
+
+    const users = DB.getUsers();
+
+    if (!user) {
+      let existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (existingUser) {
+        user = existingUser;
+        user.nama_lengkap = name;
+        user.no_telepon = phone;
+        user.alamat_default = address;
+      } else {
+        user = {
+          id: 'usr-cust-' + Math.floor(100 + Math.random() * 900),
+          nama_lengkap: name,
+          email: email,
+          role: 'customer',
+          no_telepon: phone,
+          alamat_default: address,
+          created_at: new Date().toISOString()
+        };
+        users.push(user);
+      }
+    } else {
+      user.nama_lengkap = name;
+      user.email = email;
+      user.no_telepon = phone;
+      user.alamat_default = address;
+      const idx = users.findIndex(u => u.id === user.id);
+      if (idx !== -1) {
+        users[idx] = user;
+      }
+    }
+
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     DB.setCurrentUser(user);
 
     this.updateUserUI();
     this.closeModal('user-profile-modal');
-    this.showToast('Profil akun & alamat default berhasil diperbarui.', 'success');
+    this.showToast(`Selamat datang, ${user.nama_lengkap}! Akun Anda aktif.`, 'success');
+  }
+
+  logoutCustomer() {
+    DB.setCurrentUser(null);
+    this.updateUserUI();
+    this.closeModal('user-profile-modal');
+    this.showToast('Anda telah keluar. Mode pembeli umum aktif.', 'info');
   }
 
   // --- ADMIN HQ PORTAL (CMS) ---
@@ -1960,31 +1951,8 @@ class FozzApp {
     }
   }
 
-  openSchemaModal(tab = 'gateway') {
-    this.openModal('schema-modal');
-    this.switchArchTab(tab);
-  }
-
-  copySupabaseSql() {
-    fetch('/supabase_schema.sql')
-      .then(res => res.text())
-      .then(sql => {
-        navigator.clipboard.writeText(sql);
-        this.showToast('Skema SQL (supabase_schema.sql) berhasil disalin ke clipboard!', 'success');
-      })
-      .catch(() => {
-        this.showToast('Buka file supabase_schema.sql di root project untuk melihat skema.', 'info');
-      });
-  }
-
-  switchArchTab(tabName) {
-    const tabs = ['gateway', 'qris', 'va', 'db'];
-    tabs.forEach(t => {
-      const btn = document.getElementById(`tab-btn-${t}-arch`);
-      const content = document.getElementById(`arch-content-${t}`);
-      if (btn) btn.classList.toggle('active', t === tabName);
-      if (content) content.style.display = t === tabName ? 'block' : 'none';
-    });
+  openSchemaModal() {
+    this.showToast('Dokumentasi skema database SQL tersimpan di file supabase_schema.sql.', 'info');
   }
 
   openSizeGuideModal() {
