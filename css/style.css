@@ -3900,6 +3900,271 @@ h1, h2, h3, h4, h5, h6 {
   background: #141724;
 }
 
+/* ==========================================================================
+   OFFICIAL SALES INVOICE & PROOF OF PAYMENT STYLES
+   ========================================================================== */
+.invoice-paper {
+  background: var(--bg-surface);
+  border: 2px solid var(--border-color);
+  box-shadow: 6px 6px 0px var(--border-color);
+}
+
+[data-theme="dark"] .invoice-paper {
+  background: #121520;
+}
+
+.invoice-printable-sheet {
+  color: var(--text-primary);
+  font-family: var(--font-body);
+}
+
+.invoice-stamp-paid {
+  display: inline-block;
+  padding: 0.35rem 0.85rem;
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 2.5px solid;
+  border-radius: var(--radius-sm);
+  transform: rotate(-3deg);
+  box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.15);
+}
+
+.invoice-stamp-paid.stamp-paid {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.invoice-stamp-paid.stamp-pending {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.invoice-barcode {
+  display: inline-block;
+  padding: 0.4rem 0.65rem;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   ADMIN ORDERS STATUS & LOGISTICS FILTER TABS
+   ========================================================================== */
+.admin-orders-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.admin-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.admin-filter-tab {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 1.5px 1.5px 0px var(--border-color);
+  user-select: none;
+}
+
+[data-theme="dark"] .admin-filter-tab {
+  background: #141724;
+}
+
+.admin-filter-tab:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: 2.5px 2.5px 0px var(--border-color);
+}
+
+.admin-filter-tab:active {
+  transform: translateY(1px);
+  box-shadow: 0px 0px 0px var(--border-color);
+}
+
+.admin-filter-tab.active {
+  background: var(--text-primary) !important;
+  color: var(--bg-surface) !important;
+  border-color: var(--text-primary) !important;
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.admin-tab-count {
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-family: var(--font-mono, monospace);
+  padding: 0.12rem 0.42rem;
+  border-radius: 10px;
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.admin-filter-tab.active .admin-tab-count {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.beacon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.beacon-green {
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+}
+
+.beacon-amber {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
+
+.beacon-blue {
+  background: #3b82f6;
+  box-shadow: 0 0 6px #3b82f6;
+}
+
+/* ==========================================================================
+   PRINT STYLESHEET (A4 INVOICE EXPORT & PDF PRINTING)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 1.2cm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt !important;
+  }
+
+  /* Sembunyikan seluruh elemen halaman di luar container invoice */
+  body * {
+    visibility: hidden;
+  }
+
+  #invoice-modal,
+  #invoice-modal * {
+    visibility: visible;
+  }
+
+  #invoice-modal {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    display: block !important;
+    z-index: 999999 !important;
+  }
+
+  .modal-overlay {
+    background: transparent !important;
+    padding: 0 !important;
+    position: static !important;
+  }
+
+  .modal-content.invoice-paper {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .no-print,
+  .modal-close-btn,
+  .invoice-actions-bar,
+  .role-bar,
+  .debug-bar,
+  header,
+  footer,
+  nav,
+  .toast-container {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  .invoice-printable-sheet {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .invoice-printable-sheet * {
+    color: #000000 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-stamp-paid.stamp-paid {
+    border: 2.5px solid #000000 !important;
+    color: #000000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-items-table {
+    border-collapse: collapse !important;
+    border: 1.5px solid #000000 !important;
+    width: 100% !important;
+  }
+
+  .invoice-items-table th,
+  .invoice-items-table td {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    padding: 6pt 8pt !important;
+  }
+
+  .invoice-items-table th {
+    background: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .badge-tag,
+  .role-bar-badge {
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+  }
+
+  .invoice-barcode span {
+    background: #000000 !important;
+  }
+}
+
+
 
 
 

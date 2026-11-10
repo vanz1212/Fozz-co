@@ -14,6 +14,9 @@ class FozzApp {
     this.selectedProductSize = null;
     this.newProductFile = null;
     this.editProductFile = null;
+    this.activeInvoiceOrderId = null;
+    this.adminOrderFilter = 'All';
+    this.adminOrderSearchQuery = '';
 
     this.init();
   }
@@ -190,6 +193,16 @@ class FozzApp {
   handleRouting() {
     const hash = window.location.hash;
     const isStandaloneAdmin = window.location.pathname.endsWith('admin.html') || window.location.pathname.startsWith('/admin');
+
+    if (hash.startsWith('#invoice/') || hash.startsWith('#/invoice/')) {
+      const orderId = hash.replace(/^#\/?invoice\//, '').trim();
+      if (orderId) {
+        if (!isStandaloneAdmin) this.showCustomerView();
+        setTimeout(() => this.openInvoiceModal(orderId), 150);
+        return;
+      }
+    }
+
     if (hash === '#admin' || hash === '#/admin' || window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       if (!isStandaloneAdmin) {
         window.location.href = 'admin.html';
@@ -1102,9 +1115,13 @@ class FozzApp {
             Terima kasih! Pembayaran Anda telah kami terima secara otomatis. Stok produk Anda telah diamankan dan pesanan Anda sedang disiapkan untuk pengiriman.
           </p>
           <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
-            <button class="btn-primary" onclick="app.closePaymentGatewayModal(); app.openOrderHistory();">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-              Lacak Perjalanan Paket &amp; Resi &rarr;
+            <button class="btn-primary" style="background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-surface); display: inline-flex; align-items: center; gap: 6px;" onclick="app.openInvoiceModal('${order.id}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+              Cetak / Lihat Invoice Resmi
+            </button>
+            <button class="btn-secondary" onclick="app.closePaymentGatewayModal(); app.openOrderHistory();" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+              Lacak Perjalanan Paket &rarr;
             </button>
           </div>
         </div>
@@ -1498,6 +1515,13 @@ class FozzApp {
                 </button>
               ` : ''}
 
+              ${isPaid ? `
+                <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 5px;" onclick="app.openInvoiceModal('${ord.id}')" title="Cetak / Simpan Bukti Pembayaran Resmi">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                  Invoice Resmi
+                </button>
+              ` : ''}
+
               ${!isPending && !isCancelled ? `
                 ${['shipped', 'delivered'].includes((ord.status_pesanan || '').toLowerCase()) ? `
                   <button class="btn-secondary" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;" onclick="app.openReturnRequestForOrder('${ord.id}')">
@@ -1530,6 +1554,256 @@ class FozzApp {
     DB.updateOrderStatus(orderId, 'Delivered');
     this.openOrderHistory();
     this.showToast(`Order #${orderId} diselesaikan. Drop resmi diterima!`, 'success');
+  }
+
+  // --- INVOICE & PROOF OF PAYMENT CONTROLLER ---
+  openInvoiceModal(orderId) {
+    const order = DB.getOrders().find(o => o.id === orderId);
+    if (!order) {
+      this.showToast('Data pesanan tidak ditemukan.', 'error');
+      return;
+    }
+
+    const container = document.getElementById('invoice-content-body');
+    if (!container) return;
+
+    this.activeInvoiceOrderId = orderId;
+    this.renderInvoiceContent(order, container);
+    this.openModal('invoice-modal');
+  }
+
+  copyInvoiceLink() {
+    if (!this.activeInvoiceOrderId) return;
+    const url = `${window.location.origin}${window.location.pathname}#invoice/${this.activeInvoiceOrderId}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        this.showToast('Tautan invoice resmi disalin ke clipboard!', 'success');
+      });
+    } else {
+      prompt('Salin tautan invoice berikut:', url);
+    }
+  }
+
+  renderInvoiceContent(order, container) {
+    const user = DB.getUserById(order.user_id) || {
+      nama_lengkap: 'Pelanggan Umum',
+      email: 'customer@fozz.co',
+      no_telepon: '-'
+    };
+    const items = DB.getOrderItems().filter(i => i.order_id === order.id);
+    const createdDate = new Date(order.created_at || Date.now());
+    const formattedCreated = createdDate.toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) + ' WIB';
+
+    const settlementTime = order.payment_meta && order.payment_meta.settlement_time
+      ? new Date(order.payment_meta.settlement_time).toLocaleString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        }) + ' WIB'
+      : formattedCreated;
+
+    const isPaid = ['Paid', 'Shipped', 'Delivered'].includes(order.status_pesanan);
+    const invoiceNumber = `INV/${createdDate.getFullYear()}${String(createdDate.getMonth() + 1).padStart(2, '0')}${String(createdDate.getDate()).padStart(2, '0')}/${order.id.toUpperCase()}`;
+
+    let subtotalItems = 0;
+    const itemsRows = items.map((it, idx) => {
+      const prod = DB.getProductById(it.product_id);
+      const rowTotal = it.harga_satuan * it.jumlah;
+      subtotalItems += rowTotal;
+      return `
+        <tr>
+          <td style="text-align: center; font-weight: 700; width: 40px;">${idx + 1}</td>
+          <td>
+            <strong style="color: var(--text-primary); font-size: 0.88rem;">${prod ? prod.nama_produk : 'Artikel Streetwear'}</strong>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem;">
+              Kategori: ${prod ? prod.kategori : '-'} &bull; Ukuran: <strong style="color: var(--text-primary);">${it.ukuran}</strong>
+            </div>
+          </td>
+          <td class="mono-text" style="text-align: right; width: 130px;">${this.formatRupiah(it.harga_satuan)}</td>
+          <td style="text-align: center; font-weight: 700; width: 60px;">${it.jumlah}</td>
+          <td class="mono-text" style="text-align: right; font-weight: 800; width: 140px;">${this.formatRupiah(rowTotal)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const shippingFee = order.total_harga > subtotalItems ? (order.total_harga - subtotalItems) : 20000;
+    const finalTotal = order.total_harga || (subtotalItems + shippingFee);
+
+    let paymentMethodName = 'QRIS DYNAMIC (ASPI/GPN)';
+    if (order.payment_method === 'credit_card') paymentMethodName = 'KARTU KREDIT / DEBIT ONLINE';
+    else if (order.payment_method && order.payment_method.startsWith('va_')) {
+      paymentMethodName = `VIRTUAL ACCOUNT ${order.payment_method.replace('va_', '').toUpperCase()}`;
+    }
+
+    container.innerHTML = `
+      <!-- Action Toolbar (Hidden during print) -->
+      <div class="invoice-actions-bar no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px dashed var(--border-color); flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="badge-tag" style="background: var(--accent-green); color: #fff; font-size: 0.72rem; padding: 0.25rem 0.6rem;">
+            ✓ BUKTI PEMBAYARAN RESMI
+          </span>
+          <span class="mono-text" style="font-size: 0.75rem; color: var(--text-muted);">${invoiceNumber}</span>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button type="button" class="btn-secondary" style="font-size: 0.75rem; padding: 0.4rem 0.75rem; display: inline-flex; align-items: center; gap: 5px;" onclick="app.copyInvoiceLink()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            Salin Link
+          </button>
+          <button type="button" class="btn-primary" style="font-size: 0.75rem; padding: 0.4rem 0.85rem; display: inline-flex; align-items: center; gap: 6px; background: var(--text-primary); color: var(--bg-surface); border-color: var(--text-primary);" onclick="window.print()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            Cetak / Simpan PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable Invoice Paper Document -->
+      <div class="invoice-printable-sheet">
+        <!-- Header: Brand & Legal Info -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2.5px solid var(--border-color); padding-bottom: 1.25rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <div style="font-family: var(--font-heading); font-size: 1.8rem; font-weight: 900; letter-spacing: -0.02em;">
+              FOZZ<span style="color: var(--accent-red);">.</span>CO
+            </div>
+            <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.15rem;">
+              PT FOZZ INOVASI TEKSTIL INDONESIA
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-secondary); margin-top: 0.35rem; line-height: 1.4;">
+              NPWP: 01.892.451.2-021.000<br>
+              HQ: Jl. Senopati No. 42, Kebayoran Baru, Jakarta Selatan 12190<br>
+              Email: support@fozz.co &bull; Website: https://fozz.co
+            </div>
+          </div>
+
+          <div style="text-align: right;">
+            <div class="invoice-stamp-paid ${isPaid ? 'stamp-paid' : 'stamp-pending'}">
+              ${isPaid ? 'LUNAS / PAID' : 'PENDING'}
+            </div>
+            <div class="mono-text" style="font-size: 0.85rem; font-weight: 800; color: var(--text-primary); margin-top: 0.5rem;">
+              ${invoiceNumber}
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">
+              Tanggal Pesanan: <strong style="color: var(--text-secondary);">${formattedCreated}</strong>
+            </div>
+            ${isPaid ? `
+              <div style="font-size: 0.72rem; color: var(--accent-green); font-weight: 700; margin-top: 0.15rem;">
+                Waktu Pelunasan: ${settlementTime}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- 2-Column Info: Customer & Payment Details -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: var(--bg-muted); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm);">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.06em; margin-bottom: 0.4rem;">
+              DITERBITKAN KEPADA (TAGIHAN):
+            </div>
+            <div style="font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">
+              ${user.nama_lengkap}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.2rem;">
+              ${user.email} &bull; ${user.no_telepon || '-'}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.4rem; line-height: 1.4;">
+              <strong>Alamat Pengiriman:</strong><br>
+              ${order.alamat_pengiriman}
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.06em; margin-bottom: 0.4rem;">
+              METADATA TRANSAKSI &amp; LOGISTIK:
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
+              <div>Metode Bayar: <strong style="color: var(--text-primary);">${paymentMethodName}</strong></div>
+              <div>ID Transaksi: <code class="mono-text" style="color: var(--accent-red); font-weight: 700;">${order.transaction_id || ('TRX-PG-' + order.id)}</code></div>
+              <div>Ekspedisi: <strong style="color: var(--text-primary);">${order.courier || 'J&T Express Super'}</strong></div>
+              <div>No. Resi (AWB): <strong class="mono-text" style="color: ${order.resi_pengiriman ? 'var(--accent-green)' : 'var(--accent-gold)'}; font-weight: 800;">${order.resi_pengiriman || (isPaid ? 'Sedang Diproses Logistik' : 'Menunggu Pelunasan')}</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table Line Items -->
+        <div style="margin-bottom: 1.5rem; overflow-x: auto;">
+          <table class="data-table invoice-items-table" style="width: 100%; border: 1.5px solid var(--border-color);">
+            <thead>
+              <tr>
+                <th style="text-align: center; width: 40px;">No</th>
+                <th>Rincian Artikel &amp; Spesifikasi Drop</th>
+                <th style="text-align: right; width: 130px;">Harga Satuan</th>
+                <th style="text-align: center; width: 60px;">Qty</th>
+                <th style="text-align: right; width: 140px;">Jumlah</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsRows}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Cost Calculation & Summary -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 1.75rem;">
+          <div style="width: 320px; background: var(--bg-surface); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.4rem; color: var(--text-secondary);">
+              <span>Subtotal Produk:</span>
+              <span class="mono-text font-weight-bold" style="color: var(--text-primary);">${this.formatRupiah(subtotalItems)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.4rem; color: var(--text-secondary);">
+              <span>Ongkos Kirim (Asuransi &amp; Box):</span>
+              <span class="mono-text font-weight-bold" style="color: var(--text-primary);">${this.formatRupiah(shippingFee)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.6rem; color: var(--text-secondary);">
+              <span>PPN 11% &amp; Biaya Gateway:</span>
+              <span style="color: var(--accent-green); font-weight: 700; font-size: 0.75rem;">Bebas Biaya (Termasuk)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 1rem; font-weight: 900; border-top: 2px dashed var(--border-color); padding-top: 0.6rem; color: var(--text-primary);">
+              <span>TOTAL LUNAS:</span>
+              <span class="mono-text" style="color: var(--accent-red); font-size: 1.15rem;">${this.formatRupiah(finalTotal)}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Notice, Warranty & Security Verification Barcode -->
+        <div style="border-top: 1.5px solid var(--border-color); padding-top: 1.25rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+          <div style="max-width: 440px; font-size: 0.72rem; color: var(--text-muted); line-height: 1.45;">
+            <strong style="color: var(--text-secondary);">KETENTUAN &amp; GARANSI RESMI:</strong><br>
+            Invoice elektronik ini merupakan bukti pembayaran sah yang diterbitkan secara digital oleh sistem otomatis FOZZ.CO.
+            Seluruh artikel FOZZ dilindungi fasilitas <strong>Garansi Pas 7 Hari</strong> (penukaran ukuran) &amp; Jaminan Keaslian 100%. Simpan nomor invoice ini untuk keperluan audit retur atau klaim layanan pelanggan.
+          </div>
+
+          <div style="text-align: right;">
+            <div class="invoice-barcode">
+              <div style="display: flex; align-items: flex-end; justify-content: flex-end; gap: 2px; height: 32px; margin-bottom: 3px;">
+                <span style="width: 2px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 3px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 1px; height: 75%; background: var(--text-primary);"></span>
+                <span style="width: 4px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 2px; height: 80%; background: var(--text-primary);"></span>
+                <span style="width: 1px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 3px; height: 90%; background: var(--text-primary);"></span>
+                <span style="width: 2px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 4px; height: 85%; background: var(--text-primary);"></span>
+                <span style="width: 1px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 3px; height: 100%; background: var(--text-primary);"></span>
+                <span style="width: 2px; height: 70%; background: var(--text-primary);"></span>
+                <span style="width: 4px; height: 100%; background: var(--text-primary);"></span>
+              </div>
+              <div class="mono-text" style="font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.1em;">
+                AUTH-DIGITAL-SIGN: ${order.id.toUpperCase()}-VERIFIED
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // --- USER PROFILE & SUPABASE AUTHENTICATION (PEMBELI UMUM: MASUK & DAFTAR RESMI) ---
@@ -2583,15 +2857,99 @@ class FozzApp {
     }
   }
 
-  // --- ADMIN: ORDERS FULFILLMENT ---
+  // --- ADMIN: ORDERS FULFILLMENT & LOGISTICS ---
+  setAdminOrderFilter(status) {
+    this.adminOrderFilter = status || 'All';
+    const filterTabs = ['all', 'pending', 'paid', 'shipped', 'canceled'];
+    filterTabs.forEach(t => {
+      const btn = document.getElementById(`order-filter-${t}`);
+      if (btn) {
+        if (t.toLowerCase() === this.adminOrderFilter.toLowerCase()) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    });
+    this.renderAdminOrders();
+  }
+
+  handleAdminOrderSearch(query) {
+    this.adminOrderSearchQuery = (query || '').toLowerCase().trim();
+    this.renderAdminOrders();
+  }
+
   renderAdminOrders() {
     const tbody = document.getElementById('admin-orders-table-body');
     if (!tbody) return;
 
-    const orders = DB.getOrders();
+    const allOrders = DB.getOrders();
     const orderItems = DB.getOrderItems();
 
-    tbody.innerHTML = orders.map(ord => {
+    // 1. Kalkulasi Hitungan Badge untuk Masing-Masing Tab Filter
+    const countAll = allOrders.length;
+    const countPending = allOrders.filter(o => (o.status_pesanan || '').toLowerCase() === 'pending').length;
+    const countPaid = allOrders.filter(o => (o.status_pesanan || '').toLowerCase() === 'paid').length;
+    const countShipped = allOrders.filter(o => ['shipped', 'delivered'].includes((o.status_pesanan || '').toLowerCase())).length;
+    const countCanceled = allOrders.filter(o => ['canceled', 'cancelled', 'refunded'].includes((o.status_pesanan || '').toLowerCase())).length;
+
+    const elAll = document.getElementById('count-order-all');
+    const elPending = document.getElementById('count-order-pending');
+    const elPaid = document.getElementById('count-order-paid');
+    const elShipped = document.getElementById('count-order-shipped');
+    const elCanceled = document.getElementById('count-order-canceled');
+
+    if (elAll) elAll.textContent = countAll;
+    if (elPending) elPending.textContent = countPending;
+    if (elPaid) elPaid.textContent = countPaid;
+    if (elShipped) elShipped.textContent = countShipped;
+    if (elCanceled) elCanceled.textContent = countCanceled;
+
+    // 2. Filter Pesanan Berdasarkan Tab Status yang Aktif
+    let filteredOrders = allOrders;
+    if (this.adminOrderFilter && this.adminOrderFilter !== 'All') {
+      const f = this.adminOrderFilter.toLowerCase();
+      if (f === 'pending') {
+        filteredOrders = filteredOrders.filter(o => (o.status_pesanan || '').toLowerCase() === 'pending');
+      } else if (f === 'paid') {
+        filteredOrders = filteredOrders.filter(o => (o.status_pesanan || '').toLowerCase() === 'paid');
+      } else if (f === 'shipped') {
+        filteredOrders = filteredOrders.filter(o => ['shipped', 'delivered'].includes((o.status_pesanan || '').toLowerCase()));
+      } else if (f === 'canceled') {
+        filteredOrders = filteredOrders.filter(o => ['canceled', 'cancelled', 'refunded'].includes((o.status_pesanan || '').toLowerCase()));
+      }
+    }
+
+    // 3. Filter Berdasarkan Pencarian Kata Kunci (No. Order / Nama / Email / Resi)
+    if (this.adminOrderSearchQuery) {
+      const q = this.adminOrderSearchQuery;
+      filteredOrders = filteredOrders.filter(o => {
+        const user = DB.getUserById(o.user_id);
+        const userName = user ? user.nama_lengkap.toLowerCase() : '';
+        const userEmail = user ? user.email.toLowerCase() : '';
+        const orderId = (o.id || '').toLowerCase();
+        const resi = (o.resi_pengiriman || '').toLowerCase();
+        const address = (o.alamat_pengiriman || '').toLowerCase();
+        return orderId.includes(q) || userName.includes(q) || userEmail.includes(q) || resi.includes(q) || address.includes(q);
+      });
+    }
+
+    // 4. Jika Tidak Ada Pesanan yang Sesuai dengan Filter
+    if (filteredOrders.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); background: var(--bg-muted);">
+            <div style="font-size: 1.8rem; margin-bottom: 0.5rem;">📦</div>
+            <strong style="color: var(--text-primary); font-size: 0.95rem; display: block; margin-bottom: 0.35rem;">Tidak Ada Pesanan Ditemukan</strong>
+            <span style="font-size: 0.8rem;">Tidak ditemukan pesanan dengan status <strong>${this.adminOrderFilter}</strong>${this.adminOrderSearchQuery ? ` dan kata kunci "${this.adminOrderSearchQuery}"` : ''}.</span>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    // 5. Render Daftar Pesanan Terfilter
+    tbody.innerHTML = filteredOrders.map(ord => {
       const user = DB.getUserById(ord.user_id);
       const items = orderItems.filter(i => i.order_id === ord.id);
 
@@ -2636,9 +2994,15 @@ class FozzApp {
             </div>
           </td>
           <td>
-            <button class="btn-outline-red" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;" onclick="app.adminCancelFraudOrder('${ord.id}')">
-              Void Fraud
-            </button>
+            <div style="display: flex; gap: 0.35rem; align-items: center;">
+              <button class="role-btn" style="padding: 0.3rem 0.55rem; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;" onclick="app.openInvoiceModal('${ord.id}')" title="Buka &amp; Cetak Slip Invoice">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                Inv
+              </button>
+              <button class="btn-outline-red" style="padding: 0.3rem 0.55rem; font-size: 0.72rem;" onclick="app.adminCancelFraudOrder('${ord.id}')">
+                Void
+              </button>
+            </div>
           </td>
         </tr>
       `;

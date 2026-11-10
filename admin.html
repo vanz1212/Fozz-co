@@ -404,6 +404,38 @@
             </div>
           </div>
 
+          <!-- Filter Tab Status Pesanan & Logistik -->
+          <div class="admin-orders-filter-bar">
+            <div class="admin-filter-tabs" id="admin-orders-tabs">
+              <button type="button" class="admin-filter-tab active" onclick="app.setAdminOrderFilter('All')" id="order-filter-all">
+                Semua Pesanan <span class="admin-tab-count" id="count-order-all">0</span>
+              </button>
+              <button type="button" class="admin-filter-tab" onclick="app.setAdminOrderFilter('Pending')" id="order-filter-pending">
+                <span class="beacon-dot beacon-amber"></span>
+                Pending <span class="admin-tab-count" id="count-order-pending">0</span>
+              </button>
+              <button type="button" class="admin-filter-tab" onclick="app.setAdminOrderFilter('Paid')" id="order-filter-paid">
+                <span class="beacon-dot beacon-green"></span>
+                Paid (Lunas) <span class="admin-tab-count" id="count-order-paid">0</span>
+              </button>
+              <button type="button" class="admin-filter-tab" onclick="app.setAdminOrderFilter('Shipped')" id="order-filter-shipped">
+                <span class="beacon-dot beacon-blue"></span>
+                Shipped <span class="admin-tab-count" id="count-order-shipped">0</span>
+              </button>
+              <button type="button" class="admin-filter-tab" onclick="app.setAdminOrderFilter('Canceled')" id="order-filter-canceled">
+                Canceled <span class="admin-tab-count" id="count-order-canceled">0</span>
+              </button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="text" 
+                     id="admin-order-search" 
+                     placeholder="Cari No. Order / Nama / Resi..." 
+                     style="font-size: 0.78rem; padding: 0.45rem 0.75rem; width: 230px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary);" 
+                     oninput="app.handleAdminOrderSearch(this.value)">
+            </div>
+          </div>
+
           <div class="table-container">
             <table class="data-table">
               <thead>
@@ -775,6 +807,19 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ADMIN: OFFICIAL SALES INVOICE & PROOF OF PAYMENT MODAL -->
+  <div class="modal-overlay" id="invoice-modal">
+    <div class="modal-content invoice-paper" style="max-width: 820px; padding: 2rem;">
+      <button class="modal-close-btn no-print" onclick="app.closeModal('invoice-modal')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div id="invoice-content-body">
+        <!-- Injected via app.renderInvoiceContent() -->
+      </div>
     </div>
   </div>
   </template>
