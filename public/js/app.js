@@ -12,6 +12,8 @@ class FozzApp {
     this.selectedSizeFilter = '';
     this.activeModalProduct = null;
     this.selectedProductSize = null;
+    this.newProductFile = null;
+    this.editProductFile = null;
 
     this.init();
   }
@@ -394,14 +396,14 @@ class FozzApp {
 
   logoutAdmin() {
     sessionStorage.removeItem('fozz_admin_authenticated');
-    const customerUser = DB.getUsers().find(u => u.role === 'customer') || SEED_USERS[1];
-    DB.setCurrentUser(customerUser);
+    DB.setCurrentUser(null);
 
     if (window.location.hash === '#admin' || window.location.hash === '#/admin') {
       history.pushState(null, document.title, window.location.pathname + window.location.search);
     }
 
     this.showCustomerView();
+    this.updateUserUI();
     this.renderCatalog();
     this.showToast('Sesi Admin HQ ditutup. Berhasil logout.', 'info');
   }
@@ -468,7 +470,8 @@ class FozzApp {
     const grid = document.getElementById('products-grid');
     if (!grid) return;
 
-    let products = DB.getProducts();
+    // Hanya tampilkan artikel aktif di etalase toko (artikel berstatus 'archived' disembunyikan)
+    let products = DB.getProducts().filter(p => p.status !== 'archived');
     const wishlist = DB.getWishlist();
 
     // Category Filter
@@ -599,7 +602,9 @@ class FozzApp {
     // 3. Reset ukuran terpilih jika ukuran tersebut tidak ada di kategori terpilih
     if (this.selectedSizeFilter) {
       const allSizes = DB.getProductSizes();
-      const catProds = category === 'ALL' ? DB.getProducts() : DB.getProducts().filter(p => p.kategori && p.kategori.toLowerCase() === category.toLowerCase());
+      const catProds = category === 'ALL' 
+        ? DB.getProducts().filter(p => p.status !== 'archived') 
+        : DB.getProducts().filter(p => p.status !== 'archived' && p.kategori && p.kategori.toLowerCase() === category.toLowerCase());
       const catProdIds = new Set(catProds.map(p => p.id));
       const hasSize = allSizes.some(s => catProdIds.has(s.product_id) && s.ukuran && s.ukuran.toString().toLowerCase() === this.selectedSizeFilter.toLowerCase());
       if (!hasSize) {
@@ -989,7 +994,7 @@ class FozzApp {
     // 1. Relational Order Inisiasi berstatus 'Pending' (TTL 15 Menit)
     // 2. Line items terkunci di `order_items` (anti-distorsi harga)
     // 3. Masuk ke Payment Gateway Engine untuk penyelesaian transaksi real-time
-    const userId = currentUser ? currentUser.id : 'usr-cust-001';
+    const userId = currentUser ? currentUser.id : null;
     const newOrder = DB.createOrder(userId, cart, address, courier, 20000, "Pending", paymentMethod);
 
     this.closeModal('checkout-modal');
@@ -1264,7 +1269,7 @@ class FozzApp {
             <div style="background: var(--bg-card); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem 1rem;">
               <div style="display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 0.25rem;">
                 <span style="color: var(--text-muted);">Nama Rekening Tujuan:</span>
-                <strong>FOZZ - ${(currentUser.nama_lengkap || 'IVAN PRATAMA').toUpperCase()}</strong>
+                <strong>FOZZ - ${(currentUser && currentUser.nama_lengkap ? currentUser.nama_lengkap : 'PELANGGAN RESMI').toUpperCase()}</strong>
               </div>
               <div style="display: flex; justify-content: space-between; font-size: 0.78rem;">
                 <span style="color: var(--text-muted);">Tipe Virtual Account:</span>
@@ -1382,13 +1387,28 @@ class FozzApp {
     const currentUser = DB.getCurrentUser();
     const container = document.getElementById('order-history-container');
     const allOrders = DB.getOrders();
-    const myOrders = currentUser ? allOrders.filter(o => o.user_id === currentUser.id) : allOrders;
+    const myOrders = currentUser ? allOrders.filter(o => o.user_id === currentUser.id) : [];
+
+    if (!currentUser) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); border: 2px dashed var(--border-color); border-radius: var(--radius-sm); background: var(--bg-card);">
+          <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🔐</div>
+          <h3 style="font-size: 1.15rem; color: var(--text-primary); margin-bottom: 0.35rem;">Masuk untuk Melacak Pesanan</h3>
+          <p style="font-size: 0.85rem; max-width: 380px; margin: 0 auto 1.25rem auto;">Silakan masuk atau daftar akun resmi FOZZ untuk melacak riwayat paket dan nomor resi pengiriman real-time Anda.</p>
+          <button class="btn-primary" onclick="app.closeModal('order-history-modal'); app.openProfileModal();" style="margin: 0 auto;">
+            Masuk / Buat Akun
+          </button>
+        </div>
+      `;
+      this.openModal('order-history-modal');
+      return;
+    }
 
     if (myOrders.length === 0) {
       container.innerHTML = `
         <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-          <h3>Belum ada order untuk dilacak</h3>
+          <h3>Belum ada pesanan aktif</h3>
           <p style="font-size: 0.85rem; margin-top: 0.5rem;">Pilih koleksi favorit Anda di katalog, lalu pantau perjalanan paket dan nomor resi secara real-time di sini.</p>
         </div>
       `;
@@ -1512,111 +1532,290 @@ class FozzApp {
     this.showToast(`Order #${orderId} diselesaikan. Drop resmi diterima!`, 'success');
   }
 
-  // --- USER PROFILE & AUTH (PEMBELI UMUM / MASUK / DAFTAR) ---
+  // --- USER PROFILE & SUPABASE AUTHENTICATION (PEMBELI UMUM: MASUK & DAFTAR RESMI) ---
   openProfileModal() {
     this.toggleMobileMenu(false);
     const user = DB.getCurrentUser();
 
-    const titleEl = document.getElementById('profile-modal-title');
-    const badgeEl = document.getElementById('profile-modal-badge');
-    const descEl = document.getElementById('profile-modal-desc');
-    const submitBtn = document.getElementById('btn-save-profile');
-    const logoutBtn = document.getElementById('btn-logout-customer');
-
-    const nameInput = document.getElementById('profile-name');
-    const emailInput = document.getElementById('profile-email');
-    const phoneInput = document.getElementById('profile-phone');
-    const addrInput = document.getElementById('profile-address');
+    const authContainer = document.getElementById('auth-forms-container');
+    const profileContainer = document.getElementById('auth-profile-container');
 
     if (!user) {
-      if (badgeEl) badgeEl.textContent = 'AKUN PELANGGAN';
-      if (titleEl) titleEl.textContent = 'Masuk / Daftar Akun';
-      if (descEl) descEl.textContent = 'Lengkapi identitas Anda untuk kemudahan pelacakan pesanan, riwayat belanja, dan pengiriman.';
-      if (nameInput) nameInput.value = '';
-      if (emailInput) {
-        emailInput.value = '';
-        emailInput.removeAttribute('readonly');
-      }
-      if (phoneInput) phoneInput.value = '';
-      if (addrInput) addrInput.value = '';
-      if (submitBtn) submitBtn.textContent = 'Masuk / Simpan Akun';
-      if (logoutBtn) logoutBtn.style.display = 'none';
+      if (authContainer) authContainer.style.display = 'block';
+      if (profileContainer) profileContainer.style.display = 'none';
+      this.switchAuthTab('login');
+
+      // Bersihkan input & error
+      const loginEmail = document.getElementById('login-customer-email');
+      const loginPass = document.getElementById('login-customer-password');
+      const loginErr = document.getElementById('login-customer-error');
+      const regErr = document.getElementById('register-customer-error');
+      if (loginEmail) loginEmail.value = '';
+      if (loginPass) loginPass.value = '';
+      if (loginErr) { loginErr.style.display = 'none'; loginErr.textContent = ''; }
+      if (regErr) { regErr.style.display = 'none'; regErr.textContent = ''; }
     } else {
-      if (badgeEl) badgeEl.textContent = 'PROFIL AKTIF';
-      if (titleEl) titleEl.textContent = 'Informasi Akun';
-      if (descEl) descEl.textContent = 'Kelola informasi identitas dan alamat pengiriman Anda.';
-      if (nameInput) nameInput.value = user.nama_lengkap || '';
-      if (emailInput) {
-        emailInput.value = user.email || '';
-        emailInput.removeAttribute('readonly');
-      }
-      if (phoneInput) phoneInput.value = user.no_telepon || '';
-      if (addrInput) addrInput.value = user.alamat_default || '';
-      if (submitBtn) submitBtn.textContent = 'Simpan Perubahan';
-      if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+      if (authContainer) authContainer.style.display = 'none';
+      if (profileContainer) profileContainer.style.display = 'block';
+
+      const avatarEl = document.getElementById('logged-user-avatar');
+      const nameEl = document.getElementById('logged-user-name');
+      const emailEl = document.getElementById('logged-user-email');
+      const editName = document.getElementById('profile-edit-name');
+      const editPhone = document.getElementById('profile-edit-phone');
+      const editAddress = document.getElementById('profile-edit-address');
+
+      const initial = (user.nama_lengkap || user.email || 'U').charAt(0).toUpperCase();
+      if (avatarEl) avatarEl.textContent = initial;
+      if (nameEl) nameEl.textContent = user.nama_lengkap || 'Pelanggan FOZZ';
+      if (emailEl) emailEl.textContent = user.email || '';
+      if (editName) editName.value = user.nama_lengkap || '';
+      if (editPhone) editPhone.value = user.no_telepon || '';
+      if (editAddress) editAddress.value = user.alamat_default || '';
     }
 
     this.openModal('user-profile-modal');
   }
 
-  saveProfile(event) {
-    event.preventDefault();
-    let user = DB.getCurrentUser();
-    const name = document.getElementById('profile-name').value.trim();
-    const email = document.getElementById('profile-email').value.trim();
-    const phone = document.getElementById('profile-phone').value.trim();
-    const address = document.getElementById('profile-address').value.trim();
+  switchAuthTab(tab) {
+    const tabLogin = document.getElementById('tab-auth-login');
+    const tabRegister = document.getElementById('tab-auth-register');
+    const panelLogin = document.getElementById('auth-panel-login');
+    const panelRegister = document.getElementById('auth-panel-register');
+    const loginErr = document.getElementById('login-customer-error');
+    const regErr = document.getElementById('register-customer-error');
 
-    if (!name || !email) {
-      this.showToast('Nama lengkap dan email wajib diisi.', 'warn');
+    if (loginErr) { loginErr.style.display = 'none'; loginErr.textContent = ''; }
+    if (regErr) { regErr.style.display = 'none'; regErr.textContent = ''; }
+
+    if (tab === 'register') {
+      if (tabLogin) tabLogin.classList.remove('active');
+      if (tabRegister) tabRegister.classList.add('active');
+      if (panelLogin) panelLogin.style.display = 'none';
+      if (panelRegister) panelRegister.style.display = 'block';
+      setTimeout(() => {
+        const nameInput = document.getElementById('reg-customer-name');
+        if (nameInput) nameInput.focus();
+      }, 60);
+    } else {
+      if (tabLogin) tabLogin.classList.add('active');
+      if (tabRegister) tabRegister.classList.remove('active');
+      if (panelLogin) panelLogin.style.display = 'block';
+      if (panelRegister) panelRegister.style.display = 'none';
+      setTimeout(() => {
+        const emailInput = document.getElementById('login-customer-email');
+        if (emailInput) emailInput.focus();
+      }, 60);
+    }
+  }
+
+  toggleAuthPasswordVisibility(inputId, iconId, textId) {
+    const passInput = document.getElementById(inputId);
+    const passIcon = document.getElementById(iconId);
+    const passText = document.getElementById(textId);
+    if (!passInput) return;
+
+    if (passInput.type === 'password') {
+      passInput.type = 'text';
+      if (passIcon) passIcon.textContent = '🔒';
+      if (passText) passText.textContent = 'Tutup';
+    } else {
+      passInput.type = 'password';
+      if (passIcon) passIcon.textContent = '👁️';
+      if (passText) passText.textContent = 'Lihat';
+    }
+  }
+
+  async handleCustomerLogin(event) {
+    event.preventDefault();
+    const emailInput = document.getElementById('login-customer-email');
+    const passInput = document.getElementById('login-customer-password');
+    const errEl = document.getElementById('login-customer-error');
+    const btnSubmit = document.getElementById('btn-submit-login');
+
+    const email = emailInput ? emailInput.value.trim() : '';
+    const password = passInput ? passInput.value : '';
+
+    if (!email || !password) {
+      if (errEl) {
+        errEl.textContent = 'Silakan masukkan email dan kata sandi Anda.';
+        errEl.style.display = 'block';
+      }
       return;
     }
 
-    const users = DB.getUsers();
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
-    if (!user) {
-      let existingUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      if (existingUser) {
-        user = existingUser;
-        user.nama_lengkap = name;
-        user.no_telepon = phone;
-        user.alamat_default = address;
-      } else {
-        user = {
-          id: 'usr-cust-' + Math.floor(100 + Math.random() * 900),
-          nama_lengkap: name,
-          email: email,
-          role: 'customer',
-          no_telepon: phone,
-          alamat_default: address,
-          created_at: new Date().toISOString()
-        };
-        users.push(user);
-      }
-    } else {
-      user.nama_lengkap = name;
-      user.email = email;
-      user.no_telepon = phone;
-      user.alamat_default = address;
-      const idx = users.findIndex(u => u.id === user.id);
-      if (idx !== -1) {
-        users[idx] = user;
-      }
+    // Loading State
+    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : 'Masuk Sekarang';
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-icon"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+        Memverifikasi Akun Supabase...
+      `;
     }
 
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-    DB.setCurrentUser(user);
+    try {
+      const result = await DB.signInCustomer({ email, password });
 
-    this.updateUserUI();
-    this.closeModal('user-profile-modal');
-    this.showToast(`Selamat datang, ${user.nama_lengkap}! Akun Anda aktif.`, 'success');
+      if (!result.success) {
+        if (errEl) {
+          errEl.textContent = result.error || 'Gagal masuk akun. Silakan periksa kredensial Anda.';
+          errEl.style.display = 'block';
+        }
+        if (passInput) passInput.focus();
+        return;
+      }
+
+      // Berhasil Login
+      this.closeModal('user-profile-modal');
+      this.updateUserUI();
+      this.showToast(`Selamat datang kembali, ${result.user.nama_lengkap}! Sesi Supabase aktif.`, 'success');
+
+      if (this.currentRole === 'customer') {
+        this.renderCatalog();
+      }
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = 'Terjadi kesalahan sistem saat mencoba masuk. Silakan coba kembali.';
+        errEl.style.display = 'block';
+      }
+    } finally {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = originalBtnHtml;
+      }
+    }
   }
 
-  logoutCustomer() {
-    DB.setCurrentUser(null);
+  async handleCustomerRegister(event) {
+    event.preventDefault();
+    const nameInput = document.getElementById('reg-customer-name');
+    const emailInput = document.getElementById('reg-customer-email');
+    const passInput = document.getElementById('reg-customer-password');
+    const confirmInput = document.getElementById('reg-customer-confirm-password');
+    const phoneInput = document.getElementById('reg-customer-phone');
+    const addrInput = document.getElementById('reg-customer-address');
+    const errEl = document.getElementById('register-customer-error');
+    const btnSubmit = document.getElementById('btn-submit-register');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
+    const pass = passInput ? passInput.value : '';
+    const confirmPass = confirmInput ? confirmInput.value : '';
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const address = addrInput ? addrInput.value.trim() : '';
+
+    if (!name || !email || !pass) {
+      if (errEl) {
+        errEl.textContent = 'Nama lengkap, email, dan kata sandi wajib diisi.';
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (pass.length < 6) {
+      if (errEl) {
+        errEl.textContent = 'Kata sandi minimal harus 6 karakter (ketentuan Supabase).';
+        errEl.style.display = 'block';
+      }
+      if (passInput) passInput.focus();
+      return;
+    }
+
+    if (pass !== confirmPass) {
+      if (errEl) {
+        errEl.textContent = 'Konfirmasi kata sandi tidak cocok. Silakan periksa kembali.';
+        errEl.style.display = 'block';
+      }
+      if (confirmInput) confirmInput.focus();
+      return;
+    }
+
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+    // Loading State
+    const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : 'Daftar Akun Baru';
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin-icon"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg>
+        Mendaftarkan ke Supabase Auth...
+      `;
+    }
+
+    try {
+      const result = await DB.signUpCustomer({
+        email,
+        password: pass,
+        nama_lengkap: name,
+        no_telepon: phone,
+        alamat_default: address
+      });
+
+      if (!result.success) {
+        if (errEl) {
+          errEl.textContent = result.error || 'Gagal mendaftarkan akun. Silakan periksa data Anda.';
+          errEl.style.display = 'block';
+        }
+        return;
+      }
+
+      if (result.requiresConfirmation) {
+        this.showToast('Registrasi Berhasil! Silakan periksa inbox email Anda untuk aktivasi.', 'success');
+        this.switchAuthTab('login');
+        const loginEmailInput = document.getElementById('login-customer-email');
+        if (loginEmailInput) loginEmailInput.value = email;
+      } else {
+        this.closeModal('user-profile-modal');
+        this.updateUserUI();
+        this.showToast(`Akun berhasil dibuat! Selamat datang di FOZZ.CO, ${result.user.nama_lengkap}.`, 'success');
+      }
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = 'Terjadi kesalahan sistem saat mendaftar. Silakan coba kembali.';
+        errEl.style.display = 'block';
+      }
+    } finally {
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = originalBtnHtml;
+      }
+    }
+  }
+
+  async handleUpdateProfile(event) {
+    event.preventDefault();
+    const name = document.getElementById('profile-edit-name').value.trim();
+    const phone = document.getElementById('profile-edit-phone').value.trim();
+    const address = document.getElementById('profile-edit-address').value.trim();
+
+    if (!name) {
+      this.showToast('Nama lengkap wajib diisi.', 'warn');
+      return;
+    }
+
+    const result = await DB.updateCustomerProfile({
+      nama_lengkap: name,
+      no_telepon: phone,
+      alamat_default: address
+    });
+
+    if (result.success) {
+      this.updateUserUI();
+      this.closeModal('user-profile-modal');
+      this.showToast('Profil dan alamat pengiriman berhasil diperbarui.', 'success');
+    } else {
+      this.showToast(result.error || 'Gagal memperbarui profil.', 'danger');
+    }
+  }
+
+  async logoutCustomer() {
+    await DB.signOutCustomer();
     this.updateUserUI();
     this.closeModal('user-profile-modal');
-    this.showToast('Anda telah keluar. Mode pembeli umum aktif.', 'info');
+    this.showToast('Anda telah keluar dari akun. Mode pembeli umum aktif.', 'info');
   }
 
   // --- ADMIN HQ PORTAL (CMS) ---
@@ -1765,23 +1964,46 @@ class FozzApp {
     tbody.innerHTML = products.map(prod => {
       const prodSizes = sizes.filter(s => s.product_id === prod.id);
       const totalStock = prodSizes.reduce((sum, s) => sum + s.stok, 0);
+      const isArchived = prod.status === 'archived';
 
-      const sizeInputs = prodSizes.map(s => `
-        <div style="display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 0.5rem; margin-bottom: 0.25rem;">
-          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">${s.ukuran}:</span>
-          <input type="number" 
-                 value="${s.stok}" 
-                 min="0" 
-                 style="width: 55px; padding: 0.25rem 0.4rem; font-size: 0.78rem;" 
-                 onchange="app.saveStockAdjustment('${s.id}', this.value)">
-        </div>
-      `).join('');
+      const sizeInputs = prodSizes.map(s => {
+        const isLow = s.stok <= 3 && s.stok > 0;
+        const isOut = s.stok === 0;
+        const statusClass = isOut ? 'out-of-stock' : (isLow ? 'low-stock' : '');
+        
+        return `
+          <div class="restock-size-card" id="size-card-${s.id}">
+            <div class="restock-size-header">
+              <span class="restock-size-label">SIZE ${s.ukuran}</span>
+              <span class="restock-size-count ${statusClass}">${s.stok} pcs</span>
+            </div>
+            <div class="restock-size-body">
+              <input type="number" 
+                     value="${s.stok}" 
+                     min="0" 
+                     class="restock-input" 
+                     title="Ubah angka total stok Size ${s.ukuran}" 
+                     onchange="app.saveStockAdjustment('${s.id}', this.value)">
+              <div class="restock-quick-chips">
+                <button type="button" class="btn-restock-chip" onclick="app.quickAddStock('${s.id}', 1, '${s.ukuran}')" title="Tambah +1 pcs Size ${s.ukuran}">+1</button>
+                <button type="button" class="btn-restock-chip" onclick="app.quickAddStock('${s.id}', 5, '${s.ukuran}')" title="Tambah +5 pcs Size ${s.ukuran}">+5</button>
+                <button type="button" class="btn-restock-chip highlight" onclick="app.quickAddStock('${s.id}', 10, '${s.ukuran}')" title="Tambah +10 pcs saat kiriman konveksi tiba">+10</button>
+                <button type="button" class="btn-restock-chip custom" onclick="app.promptQuickAddStock('${s.id}', '${s.ukuran}')" title="Restock Kustom (+N pcs)">+N</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const statusBadge = isArchived
+        ? `<span class="badge-tag" style="background: rgba(255, 51, 75, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); font-size: 0.68rem; padding: 0.2rem 0.5rem; font-weight: 700;">DIARSIPKAN</span>`
+        : `<span class="badge-tag" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); font-size: 0.68rem; padding: 0.2rem 0.5rem; font-weight: 700;">AKTIF</span>`;
 
       return `
-        <tr>
+        <tr style="${isArchived ? 'opacity: 0.65; background: rgba(0, 0, 0, 0.02);' : ''}">
           <td>
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <img src="${prod.gambar_url}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px;">
+              <img src="${prod.gambar_url}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color);">
               <div>
                 <strong style="color: var(--text-primary); font-size: 0.9rem;">${prod.nama_produk}</strong>
                 <div class="mono-text" style="font-size: 0.72rem; color: var(--text-muted);">${prod.id}</div>
@@ -1791,7 +2013,7 @@ class FozzApp {
           <td><span class="role-bar-badge">${prod.kategori}</span></td>
           <td class="mono-text font-weight-bold">${this.formatRupiah(prod.harga)}</td>
           <td>
-            <div style="display: flex; flex-wrap: wrap;">${sizeInputs}</div>
+            <div class="restock-sizes-container">${sizeInputs}</div>
           </td>
           <td>
             <strong style="color: ${totalStock > 0 ? 'var(--accent-green)' : 'var(--accent-red)'};">
@@ -1799,9 +2021,28 @@ class FozzApp {
             </strong>
           </td>
           <td>
-            <button class="role-btn" onclick="app.openProductModal('${prod.id}')" title="Preview Tampilan">
-              Preview Drop
-            </button>
+            ${statusBadge}
+          </td>
+          <td style="text-align: right;">
+            <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 0.35rem; flex-wrap: wrap;">
+              <button class="role-btn" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; border-color: var(--accent-green); color: var(--accent-green); display: inline-flex; align-items: center; gap: 4px;" onclick="app.openBatchRestockModal('${prod.id}')" title="Batch Restock Kiriman Konveksi">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                Restock
+              </button>
+              <button class="role-btn" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;" onclick="app.openEditProductModal('${prod.id}')" title="Edit Detail &amp; Harga">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Edit
+              </button>
+              <button class="role-btn" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; ${isArchived ? 'border-color: var(--accent-green); color: var(--accent-green);' : 'border-color: #f59e0b; color: #f59e0b;'}" onclick="app.adminToggleArchiveProduct('${prod.id}')" title="${isArchived ? 'Aktifkan Kembali ke Katalog' : 'Arsipkan Drop'}">
+                ${isArchived ? 'Aktifkan' : 'Arsipkan'}
+              </button>
+              <button class="role-btn" style="padding: 0.35rem 0.6rem; font-size: 0.72rem; border-color: var(--accent-red); color: var(--accent-red);" onclick="app.adminDeleteProduct('${prod.id}')" title="Hapus Drop">
+                Hapus
+              </button>
+              <button class="role-btn" style="padding: 0.35rem 0.45rem; font-size: 0.72rem; opacity: 0.75;" onclick="app.openProductModal('${prod.id}')" title="Preview Tampilan Toko">
+                👁️
+              </button>
+            </div>
           </td>
         </tr>
       `;
@@ -1809,40 +2050,537 @@ class FozzApp {
   }
 
   saveStockAdjustment(sizeId, newStock) {
-    const updated = DB.updateStock(sizeId, newStock);
+    const parsed = Math.max(0, parseInt(newStock, 10) || 0);
+    const updated = DB.updateStock(sizeId, parsed);
     if (updated) {
-      this.showToast(`Stok Size ${updated.ukuran} diupdate jadi ${updated.stok} pcs.`, 'success');
+      this.showToast(`Stok Size ${updated.ukuran} diperbarui jadi ${updated.stok} pcs.`, 'success');
+      this.renderAdminInventory();
       this.renderCatalog();
     }
   }
 
+  quickAddStock(sizeId, addAmount, sizeName) {
+    const added = parseInt(addAmount, 10) || 0;
+    if (added <= 0) return;
+
+    const updated = DB.restockSize(sizeId, added);
+    if (updated) {
+      this.showToast(`📦 Restock Berhasil! +${added} pcs Size ${sizeName || updated.ukuran} masuk gudang (Total sekarang: ${updated.stok} pcs).`, 'success');
+      this.renderAdminInventory();
+      this.renderCatalog();
+    }
+  }
+
+  promptQuickAddStock(sizeId, sizeName) {
+    const input = prompt(`Masukkan jumlah pcs Size ${sizeName} yang baru tiba dari konveksi:`, '10');
+    if (input === null) return;
+    const amount = parseInt(input, 10);
+    if (isNaN(amount) || amount <= 0) {
+      this.showToast('Jumlah restock harus berupa angka positif.', 'info');
+      return;
+    }
+    this.quickAddStock(sizeId, amount, sizeName);
+  }
+
+  // --- ADMIN: BATCH RESTOCK MODAL CONTROLLER ---
+  openBatchRestockModal(productId) {
+    const prod = DB.getProductById(productId);
+    if (!prod) {
+      this.showToast('Produk tidak ditemukan.', 'error');
+      return;
+    }
+
+    const sizes = DB.getProductSizes().filter(s => s.product_id === prod.id);
+
+    const prodIdInput = document.getElementById('batch-restock-prod-id');
+    const prodIdLabel = document.getElementById('batch-restock-prod-id-label');
+    const headerContainer = document.getElementById('batch-restock-product-header');
+    const sizesContainer = document.getElementById('batch-restock-sizes-container');
+    const noteInput = document.getElementById('batch-restock-note');
+
+    if (prodIdInput) prodIdInput.value = prod.id;
+    if (prodIdLabel) prodIdLabel.textContent = prod.id;
+    if (noteInput) noteInput.value = '';
+
+    if (headerContainer) {
+      const currentTotal = sizes.reduce((sum, s) => sum + s.stok, 0);
+      headerContainer.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.85rem; background: var(--bg-muted); padding: 0.75rem 1rem; border-radius: var(--radius-sm); border: 1.5px solid var(--border-color);">
+          <img src="${prod.gambar_url}" style="width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color);">
+          <div style="flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span class="role-bar-badge">${prod.kategori}</span>
+              <span class="mono-text" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700;">Total Saat Ini: <strong style="color: var(--accent-green);">${currentTotal} pcs</strong></span>
+            </div>
+            <h3 style="font-size: 1.05rem; margin: 0.2rem 0; font-family: var(--font-heading);">${prod.nama_produk}</h3>
+            <span class="mono-text font-weight-bold" style="font-size: 0.8rem; color: var(--text-primary);">${this.formatRupiah(prod.harga)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    if (sizesContainer) {
+      sizesContainer.innerHTML = `
+        <div style="background: var(--bg-surface); border: 1.5px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+          <div style="display: grid; grid-template-columns: 75px 95px 1fr 95px; gap: 0.5rem; align-items: center; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1.5px solid var(--border-color); padding-bottom: 0.4rem; margin-bottom: 0.5rem;">
+            <span>Ukuran</span>
+            <span>Stok Live</span>
+            <span>+ Masuk (pcs)</span>
+            <span style="text-align: right;">Stok Baru</span>
+          </div>
+          ${sizes.map(s => `
+            <div style="display: grid; grid-template-columns: 75px 95px 1fr 95px; gap: 0.5rem; align-items: center; padding: 0.45rem 0; border-bottom: 1px dashed var(--border-color);">
+              <div>
+                <span class="role-bar-badge" style="font-size: 0.78rem; font-weight: 800;">SIZE ${s.ukuran}</span>
+              </div>
+              <div>
+                <span class="mono-text" style="font-weight: 700; font-size: 0.82rem; color: ${s.stok > 0 ? 'var(--text-primary)' : 'var(--accent-red)'};">${s.stok} pcs</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 0.3rem;">
+                <input type="number" 
+                       id="batch-add-${s.id}" 
+                       data-size-id="${s.id}" 
+                       data-current-stock="${s.stok}"
+                       data-size-name="${s.ukuran}"
+                       value="0" 
+                       min="0" 
+                       class="restock-input" 
+                       style="width: 58px; font-weight: 800;" 
+                       oninput="app.updateBatchRestockPreview('${s.id}')">
+                <button type="button" class="btn-restock-chip" onclick="app.setBatchAddInput('${s.id}', 5)">+5</button>
+                <button type="button" class="btn-restock-chip highlight" onclick="app.setBatchAddInput('${s.id}', 10)">+10</button>
+                <button type="button" class="btn-restock-chip" onclick="app.setBatchAddInput('${s.id}', 20)">+20</button>
+              </div>
+              <div style="text-align: right;">
+                <strong id="batch-preview-${s.id}" class="mono-text" style="color: var(--accent-green); font-size: 0.82rem;">
+                  ${s.stok} pcs
+                </strong>
+              </div>
+            </div>
+          `).join('')}
+          <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.65rem; font-size: 0.8rem; font-weight: 800;">
+            <span style="color: var(--text-secondary);">TOTAL KIRIMAN FISIK MASUK:</span>
+            <span id="batch-total-added-preview" class="badge-tag" style="background: var(--accent-green); color: #fff; font-size: 0.82rem; padding: 0.25rem 0.6rem;">+0 pcs</span>
+          </div>
+        </div>
+      `;
+    }
+
+    this.openModal('batch-restock-modal');
+  }
+
+  setBatchAddInput(sizeId, amount) {
+    const input = document.getElementById(`batch-add-${sizeId}`);
+    if (input) {
+      const current = parseInt(input.value, 10) || 0;
+      input.value = current + amount;
+      this.updateBatchRestockPreview(sizeId);
+    }
+  }
+
+  updateBatchRestockPreview(sizeId) {
+    const input = document.getElementById(`batch-add-${sizeId}`);
+    const previewEl = document.getElementById(`batch-preview-${sizeId}`);
+    if (input && previewEl) {
+      const currentStock = parseInt(input.getAttribute('data-current-stock'), 10) || 0;
+      const added = Math.max(0, parseInt(input.value, 10) || 0);
+      const newStock = currentStock + added;
+      previewEl.textContent = added > 0 ? `${newStock} pcs (+${added})` : `${newStock} pcs`;
+    }
+
+    const allInputs = document.querySelectorAll('[id^="batch-add-"]');
+    let grandTotalAdded = 0;
+    allInputs.forEach(inp => {
+      grandTotalAdded += Math.max(0, parseInt(inp.value, 10) || 0);
+    });
+
+    const totalEl = document.getElementById('batch-total-added-preview');
+    if (totalEl) {
+      totalEl.textContent = `+${grandTotalAdded} pcs`;
+      totalEl.style.background = grandTotalAdded > 0 ? 'var(--accent-green)' : 'var(--text-muted)';
+    }
+
+    const submitBtn = document.getElementById('batch-restock-submit-btn');
+    if (submitBtn) {
+      submitBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        Konfirmasi Masuk Gudang (+${grandTotalAdded} pcs)
+      `;
+    }
+  }
+
+  handleBatchRestockSubmit(event) {
+    event.preventDefault();
+    const prodId = document.getElementById('batch-restock-prod-id').value;
+    const prod = DB.getProductById(prodId);
+    if (!prod) return;
+
+    const allInputs = document.querySelectorAll('[id^="batch-add-"]');
+    const additions = {};
+    let totalAdded = 0;
+
+    allInputs.forEach(inp => {
+      const sizeId = inp.getAttribute('data-size-id');
+      const added = Math.max(0, parseInt(inp.value, 10) || 0);
+      if (added > 0) {
+        additions[sizeId] = added;
+        totalAdded += added;
+      }
+    });
+
+    if (totalAdded <= 0) {
+      this.showToast('Masukkan kuantitas kiriman masuk fisik (minimal 1 pcs).', 'info');
+      return;
+    }
+
+    const updatedSizes = DB.batchRestockProduct(prodId, additions);
+    const note = document.getElementById('batch-restock-note').value.trim();
+    const noteText = note ? ` [Ref: ${note}]` : '';
+
+    this.closeModal('batch-restock-modal');
+    this.refreshAdminData();
+    this.renderCatalog();
+    this.showToast(`📦 Restock Sukses! +${totalAdded} pcs berhasil dimasukkan ke stok drop "${prod.nama_produk}"${noteText}.`, 'success');
+  }
+
   openAddProductModal() {
+    this.newProductFile = null;
+    const fileInput = document.getElementById('new-prod-file');
+    const imgHidden = document.getElementById('new-prod-img');
+    const previewContainer = document.getElementById('new-prod-preview-container');
+    const previewImg = document.getElementById('new-prod-preview-img');
+
+    if (fileInput) fileInput.value = '';
+    if (imgHidden) imgHidden.value = '';
+    if (previewImg) previewImg.src = '';
+    if (previewContainer) previewContainer.style.display = 'none';
+
     this.openModal('add-product-modal');
   }
 
-  handleAddNewProduct(event) {
+  handleProductFileSelected(event, mode = 'new') {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      this.showToast('File harus berupa gambar (PNG, JPG, WEBP, AVIF).', 'warning');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      this.showToast('Ukuran foto melebihi batas maksimal 10MB.', 'warning');
+      return;
+    }
+
+    if (mode === 'new') {
+      this.newProductFile = file;
+    } else {
+      this.editProductFile = file;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      const previewImg = document.getElementById(`${mode}-prod-preview-img`);
+      const previewContainer = document.getElementById(`${mode}-prod-preview-container`);
+      const fileNameEl = document.getElementById(`${mode}-prod-file-name`);
+      const fileSizeEl = document.getElementById(`${mode}-prod-file-size`);
+      const statusBadge = document.getElementById(`${mode}-prod-status-badge`);
+      const hiddenInput = document.getElementById(`${mode}-prod-img`);
+
+      if (previewImg) previewImg.src = dataUrl;
+      if (previewContainer) previewContainer.style.display = 'flex';
+      if (fileNameEl) fileNameEl.textContent = file.name;
+      if (fileSizeEl) fileSizeEl.textContent = `${(file.size / 1024).toFixed(1)} KB`;
+      if (statusBadge) {
+        statusBadge.textContent = 'READY: SUPABASE BUCKET';
+        statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+        statusBadge.style.color = 'var(--accent-green)';
+        statusBadge.style.borderColor = 'var(--accent-green)';
+      }
+      if (hiddenInput) hiddenInput.value = dataUrl;
+
+      this.showToast(`Foto "${file.name}" terpilih. Siap diupload ke Supabase Storage.`, 'info');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  clearProductFileSelected(mode = 'new') {
+    const fileInput = document.getElementById(`${mode}-prod-file`);
+    const previewContainer = document.getElementById(`${mode}-prod-preview-container`);
+    const previewImg = document.getElementById(`${mode}-prod-preview-img`);
+    const hiddenInput = document.getElementById(`${mode}-prod-img`);
+
+    if (fileInput) fileInput.value = '';
+
+    if (mode === 'new') {
+      this.newProductFile = null;
+      if (hiddenInput) hiddenInput.value = '';
+      if (previewImg) previewImg.src = '';
+      if (previewContainer) previewContainer.style.display = 'none';
+      this.showToast('Foto produk dibatalkan.', 'info');
+    } else {
+      this.editProductFile = null;
+      const prodId = document.getElementById('edit-prod-id').value;
+      const prod = prodId ? DB.getProductById(prodId) : null;
+      if (prod && prod.gambar_url) {
+        if (hiddenInput) hiddenInput.value = prod.gambar_url;
+        if (previewImg) previewImg.src = prod.gambar_url;
+        const fileNameEl = document.getElementById('edit-prod-file-name');
+        const fileSizeEl = document.getElementById('edit-prod-file-size');
+        const statusBadge = document.getElementById('edit-prod-status-badge');
+        if (fileNameEl) fileNameEl.textContent = `Aset Visual: ${prod.nama_produk}`;
+        if (fileSizeEl) fileSizeEl.textContent = 'Supabase CDN / Web Asset';
+        if (statusBadge) {
+          statusBadge.textContent = 'TERPASANG';
+          statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+          statusBadge.style.color = 'var(--accent-green)';
+          statusBadge.style.borderColor = 'var(--accent-green)';
+        }
+        this.showToast('Foto dikembalikan ke aset awal.', 'info');
+      }
+    }
+  }
+
+  async handleAddNewProduct(event) {
     event.preventDefault();
 
-    const productData = {
-      nama_produk: document.getElementById('new-prod-name').value,
-      kategori: document.getElementById('new-prod-cat').value,
-      harga: document.getElementById('new-prod-price').value,
-      deskripsi: document.getElementById('new-prod-desc').value,
-      gambar_url: document.getElementById('new-prod-img').value
-    };
+    const imgHidden = document.getElementById('new-prod-img');
+    if (!this.newProductFile && (!imgHidden || !imgHidden.value)) {
+      this.showToast('Pilih file foto produk asli terlebih dahulu (klik tombol Pilih Foto).', 'warning');
+      return;
+    }
 
-    const sizesData = [
-      { ukuran: 'S', stok: document.getElementById('new-stock-s').value },
-      { ukuran: 'M', stok: document.getElementById('new-stock-m').value },
-      { ukuran: 'L', stok: document.getElementById('new-stock-l').value },
-      { ukuran: 'XL', stok: document.getElementById('new-stock-xl').value }
-    ];
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <div class="confirm-spinner" style="width: 14px; height: 14px; border-width: 2px; display: inline-block; vertical-align: middle; margin-right: 6px;"></div>
+        Mengunggah ke Supabase Storage...
+      `;
+    }
 
-    const newProd = DB.addProduct(productData, sizesData);
-    this.closeModal('add-product-modal');
-    this.refreshAdminData();
-    this.renderCatalog();
-    this.showToast(`Drop "${newProd.nama_produk}" resmi dirilis ke katalog!`, 'success');
+    try {
+      let finalImageUrl = imgHidden ? imgHidden.value : '';
+
+      // Upload file asli ke Supabase Storage Bucket ('product-images')
+      if (this.newProductFile) {
+        this.showToast('Mengunggah foto produk ke Supabase Storage Bucket...', 'info');
+        finalImageUrl = await DB.uploadProductImage(this.newProductFile);
+      }
+
+      const productData = {
+        nama_produk: document.getElementById('new-prod-name').value.trim(),
+        kategori: document.getElementById('new-prod-cat').value,
+        harga: Number(document.getElementById('new-prod-price').value),
+        deskripsi: document.getElementById('new-prod-desc').value.trim(),
+        gambar_url: finalImageUrl
+      };
+
+      const sizesData = [
+        { ukuran: 'S', stok: document.getElementById('new-stock-s').value },
+        { ukuran: 'M', stok: document.getElementById('new-stock-m').value },
+        { ukuran: 'L', stok: document.getElementById('new-stock-l').value },
+        { ukuran: 'XL', stok: document.getElementById('new-stock-xl').value }
+      ];
+
+      const newProd = DB.addProduct(productData, sizesData);
+      this.newProductFile = null;
+      this.closeModal('add-product-modal');
+      this.refreshAdminData();
+      this.renderCatalog();
+      this.showToast(`Drop "${newProd.nama_produk}" resmi dirilis dengan foto Supabase Storage!`, 'success');
+    } catch (err) {
+      console.error('[FOZZ App] Error saat menambah produk:', err);
+      this.showToast('Terjadi kesalahan saat memproses rilis drop.', 'danger');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+    }
+  }
+
+  // --- ADMIN: EDIT & ARCHIVE PRODUCT CONTROLLERS ---
+  openEditProductModal(productId) {
+    const prod = DB.getProductById(productId);
+    if (!prod) {
+      this.showToast('Produk tidak ditemukan.', 'error');
+      return;
+    }
+
+    this.editProductFile = null;
+    const fileInput = document.getElementById('edit-prod-file');
+    if (fileInput) fileInput.value = '';
+
+    const idInput = document.getElementById('edit-prod-id');
+    const idLabel = document.getElementById('edit-prod-id-label');
+    const nameInput = document.getElementById('edit-prod-name');
+    const catInput = document.getElementById('edit-prod-cat');
+    const priceInput = document.getElementById('edit-prod-price');
+    const statusInput = document.getElementById('edit-prod-status');
+    const descInput = document.getElementById('edit-prod-desc');
+    const imgInput = document.getElementById('edit-prod-img');
+    const previewImg = document.getElementById('edit-prod-preview-img');
+    const previewContainer = document.getElementById('edit-prod-preview-container');
+    const fileNameEl = document.getElementById('edit-prod-file-name');
+    const fileSizeEl = document.getElementById('edit-prod-file-size');
+    const statusBadge = document.getElementById('edit-prod-status-badge');
+    const sizesGrid = document.getElementById('edit-prod-sizes-grid');
+
+    if (idInput) idInput.value = prod.id;
+    if (idLabel) idLabel.textContent = prod.id;
+    if (nameInput) nameInput.value = prod.nama_produk || '';
+    if (catInput) catInput.value = prod.kategori || 'Outerwear';
+    if (priceInput) priceInput.value = prod.harga || 0;
+    if (statusInput) statusInput.value = prod.status || 'active';
+    if (descInput) descInput.value = prod.deskripsi || '';
+    if (imgInput) imgInput.value = prod.gambar_url || '';
+    if (previewImg) previewImg.src = prod.gambar_url || '';
+    if (previewContainer) previewContainer.style.display = prod.gambar_url ? 'flex' : 'none';
+    if (fileNameEl) fileNameEl.textContent = `Aset Visual: ${prod.nama_produk}`;
+    if (fileSizeEl) fileSizeEl.textContent = 'Supabase CDN / Web Asset';
+    if (statusBadge) {
+      statusBadge.textContent = 'TERPASANG';
+      statusBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      statusBadge.style.color = 'var(--accent-green)';
+      statusBadge.style.borderColor = 'var(--accent-green)';
+    }
+
+    if (sizesGrid) {
+      const allSizes = DB.getProductSizes().filter(s => s.product_id === prod.id);
+      const standardSizes = ['S', 'M', 'L', 'XL'];
+      
+      sizesGrid.innerHTML = standardSizes.map(sz => {
+        const found = allSizes.find(s => s.ukuran && s.ukuran.toUpperCase() === sz);
+        const currentStock = found ? found.stok : 0;
+        return `
+          <div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; font-weight: 700;">Size ${sz}</span>
+            <input type="number" id="edit-stock-${sz.toLowerCase()}" data-size="${sz}" value="${currentStock}" min="0" style="width: 100%;">
+          </div>
+        `;
+      }).join('');
+    }
+
+    this.openModal('edit-product-modal');
+  }
+
+  handleEditProductUrlInput(val) {
+    this.handleProductUrlInput(val);
+  }
+
+  handleEditProductImageUpload(event) {
+    this.handleProductFileSelected(event, 'edit');
+  }
+
+  async handleEditProductSubmit(event) {
+    event.preventDefault();
+    const prodId = document.getElementById('edit-prod-id').value;
+    if (!prodId) return;
+
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = `
+        <div class="confirm-spinner" style="width: 14px; height: 14px; border-width: 2px; display: inline-block; vertical-align: middle; margin-right: 6px;"></div>
+        Menyimpan ke Supabase Storage...
+      `;
+    }
+
+    try {
+      let finalImageUrl = document.getElementById('edit-prod-img').value.trim();
+
+      // Jika admin memilih file foto baru dari perangkat
+      if (this.editProductFile) {
+        this.showToast('Mengunggah foto baru ke Supabase Storage Bucket...', 'info');
+        finalImageUrl = await DB.uploadProductImage(this.editProductFile);
+      }
+
+      const productData = {
+        nama_produk: document.getElementById('edit-prod-name').value.trim(),
+        kategori: document.getElementById('edit-prod-cat').value,
+        harga: Number(document.getElementById('edit-prod-price').value),
+        status: document.getElementById('edit-prod-status').value,
+        deskripsi: document.getElementById('edit-prod-desc').value.trim(),
+        gambar_url: finalImageUrl
+      };
+
+      const standardSizes = ['s', 'm', 'l', 'xl'];
+      const sizesData = standardSizes.map(sz => {
+        const el = document.getElementById(`edit-stock-${sz}`);
+        return {
+          ukuran: sz.toUpperCase(),
+          stok: el ? Math.max(0, parseInt(el.value, 10) || 0) : 0
+        };
+      });
+
+      const updated = DB.updateProduct(prodId, productData, sizesData);
+      this.editProductFile = null;
+      if (updated) {
+        this.closeModal('edit-product-modal');
+        this.refreshAdminData();
+        this.renderCatalog();
+        this.showToast(`Drop "${updated.nama_produk}" berhasil diperbarui dengan foto Supabase!`, 'success');
+      } else {
+        this.showToast('Gagal memperbarui drop.', 'error');
+      }
+    } catch (err) {
+      console.error('[FOZZ App] Error edit produk:', err);
+      this.showToast('Gagal memperbarui drop produk.', 'danger');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+      }
+    }
+  }
+
+  adminToggleArchiveProduct(productId) {
+    const prod = DB.getProductById(productId);
+    if (!prod) return;
+
+    const isCurrentlyArchived = prod.status === 'archived';
+    const actionName = isCurrentlyArchived ? 'mengaktifkan kembali' : 'mengarsipkan (menonaktifkan)';
+    const confirmMsg = `Yakin ingin ${actionName} drop "${prod.nama_produk}"?\n\n${
+      isCurrentlyArchived 
+        ? 'Produk akan kembali muncul di etalase katalog belanja publik.' 
+        : 'Produk akan disembunyikan dari katalog belanja publik tetapi data riwayat order tetap aman.'
+    }`;
+
+    if (!confirm(confirmMsg)) return;
+
+    const res = DB.toggleArchiveProduct(productId);
+    if (res) {
+      this.refreshAdminData();
+      this.renderCatalog();
+      const statusText = res.isArchived ? 'telah diarsipkan dari katalog' : 'telah diaktifkan kembali ke katalog';
+      this.showToast(`Drop "${prod.nama_produk}" ${statusText}.`, 'success');
+    }
+  }
+
+  adminDeleteProduct(productId) {
+    const prod = DB.getProductById(productId);
+    if (!prod) return;
+
+    const confirmMsg = `PERINGATAN: Yakin ingin menghapus drop "${prod.nama_produk}" (${productId})?\n\nJika produk sudah memiliki riwayat transaksi order, sistem akan otomatis mengalihkannya ke status Arsip demi integritas data relasional.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    const res = DB.deleteProduct(productId);
+    if (res.hasOrders) {
+      this.refreshAdminData();
+      this.renderCatalog();
+      this.showToast(`Drop "${prod.nama_produk}" dialihkan ke ARSIP karena memiliki riwayat pesanan.`, 'info');
+    } else if (res.success) {
+      this.refreshAdminData();
+      this.renderCatalog();
+      this.showToast(`Drop "${prod.nama_produk}" telah dihapus permanen.`, 'success');
+    } else {
+      this.showToast('Gagal memproses penghapusan drop.', 'error');
+    }
   }
 
   // --- ADMIN: ORDERS FULFILLMENT ---
@@ -2026,7 +2764,7 @@ class FozzApp {
     const orderSelect = document.getElementById('return-order-select');
     if (!orderSelect) return;
 
-    const allUserOrders = user ? DB.getOrders().filter(o => o.user_id === user.id) : DB.getOrders();
+    const allUserOrders = user ? DB.getOrders().filter(o => o.user_id === user.id) : [];
 
     // Batasi pilihan retur hanya untuk pesanan berstatus Delivered (atau minimal Shipped)
     const eligibleOrders = allUserOrders.filter(o => {
@@ -2197,26 +2935,7 @@ class FozzApp {
   }
 
   handleProductImageUpload(event) {
-    const file = event.target.files && event.target.files[0];
-    const imgUrlInput = document.getElementById('new-prod-img');
-    const previewContainer = document.getElementById('new-prod-preview-container');
-    const previewImg = document.getElementById('new-prod-preview-img');
-
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      this.showToast('File harus berupa gambar.', 'info');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      if (imgUrlInput) imgUrlInput.value = dataUrl;
-      if (previewImg) previewImg.src = dataUrl;
-      if (previewContainer) previewContainer.style.display = 'flex';
-      this.showToast('Preview gambar produk berhasil dimuat.', 'success');
-    };
-    reader.readAsDataURL(file);
+    this.handleProductFileSelected(event, 'new');
   }
 
   handleProductUrlInput(val) {
@@ -2309,7 +3028,7 @@ class FozzApp {
     if (!container) return;
 
     const user = DB.getCurrentUser();
-    const returns = user ? DB.getReturnsByUserId(user.id) : DB.getReturns();
+    const returns = user ? DB.getReturnsByUserId(user.id) : [];
 
     if (badge) badge.textContent = `${returns.length} Tiket`;
 

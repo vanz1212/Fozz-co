@@ -279,3 +279,46 @@ INSERT INTO public.returns (id, order_id, user_id, product_id, product_name, cur
 VALUES
 ('RMA-FOZZ-882109', 'ord-882109', 'usr-cust-001', 'prod-001', 'Dark Washed Denim Jacket', 'L', 'exchange_size', 'M', 'Siluet bahu Size L terlalu drop. Minta tukar ke Size M.', true, true, 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&w=400&q=80', 'approved', 'Lolos audit QA. Slot Size M sudah di-lock di warehouse. Kirim unit lama ke Hub Logistik FOZZ.', 'RET-JNT-4401928', 'JP-9944112200', '2026-10-18T10:15:00Z')
 ON CONFLICT (id) DO NOTHING;
+
+-- ========================================================
+-- 7. SUPABASE STORAGE BUCKET: product-images
+-- Untuk aset visual foto produk asli resolusi tinggi
+-- ========================================================
+
+-- Pastikan bucket 'product-images' terdaftar dan bersifat public
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'product-images',
+  'product-images',
+  true,
+  10485760, -- 10MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/svg+xml']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public = true,
+  file_size_limit = 10485760;
+
+-- Policy 1: Akses Publik Bebas Membaca Foto Produk
+DROP POLICY IF EXISTS "Public Read Product Images" ON storage.objects;
+CREATE POLICY "Public Read Product Images"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'product-images');
+
+-- Policy 2: Hak Akses Unggah Foto ke Bucket
+DROP POLICY IF EXISTS "Allow Upload Product Images" ON storage.objects;
+CREATE POLICY "Allow Upload Product Images"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'product-images');
+
+-- Policy 3: Hak Akses Perbarui Foto Produk
+DROP POLICY IF EXISTS "Allow Update Product Images" ON storage.objects;
+CREATE POLICY "Allow Update Product Images"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'product-images');
+
+-- Policy 4: Hak Akses Hapus Foto Produk
+DROP POLICY IF EXISTS "Allow Delete Product Images" ON storage.objects;
+CREATE POLICY "Allow Delete Product Images"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'product-images');
+

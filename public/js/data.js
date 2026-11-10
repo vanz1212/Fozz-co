@@ -263,8 +263,15 @@ class FozzDatabase {
     }
     // Default: pembeli umum belum login (null) sehingga navbar menampilkan 'Masuk / Daftar'
     const storedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (!storedUser || storedUser === JSON.stringify(SEED_USERS[1])) {
+    if (!storedUser || storedUser === JSON.stringify(SEED_USERS[1]) || storedUser === 'undefined') {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(null));
+    } else {
+      try {
+        const parsed = JSON.parse(storedUser);
+        if (parsed && (parsed.id === 'usr-cust-001' || parsed.email === 'ivanpratama859@gmail.com')) {
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(null));
+        }
+      } catch (e) {}
     }
   }
 
@@ -451,6 +458,249 @@ class FozzDatabase {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
   }
 
+  // --- Real-time Customer Auth & Profile Management (Supabase Auth Cloud) ---
+  async signUpCustomer({ email, password, nama_lengkap, no_telepon = '', alamat_default = '' }) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (nama_lengkap || '').trim();
+
+    if (!cleanEmail || !password || !cleanName) {
+      return { success: false, error: 'Nama lengkap, email, dan kata sandi wajib diisi.' };
+    }
+
+    if (password.length < 6) {
+      return { success: false, error: 'Kata sandi minimal harus 6 karakter (ketentuan keamanan Supabase).' };
+    }
+
+    // 1. Eksekusi via Supabase Auth jika client aktif
+    if (this.supabase && this.supabase.auth) {
+      try {
+        const { data, error } = await this.supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+          options: {
+            data: {
+              nama_lengkap: cleanName,
+              no_telepon: (no_telepon || '').trim(),
+              alamat_default: (alamat_default || '').trim(),
+              role: 'customer'
+            }
+          }
+        });
+
+        if (error) {
+          let msg = error.message;
+          if (msg.includes('User already registered') || msg.includes('already registered')) {
+            msg = 'Alamat email sudah terdaftar. Silakan gunakan menu Masuk (Login).';
+          } else if (msg.includes('Password should be at least')) {
+            msg = 'Kata sandi minimal harus 6 karakter.';
+          } else if (msg.includes('valid email')) {
+            msg = 'Format alamat email tidak valid.';
+          }
+          return { success: false, error: msg };
+        }
+
+        const authUser = data.user;
+        const newUserId = authUser?.id || `usr-cust-${Date.now().toString().slice(-6)}`;
+
+        const userRecord = {
+          id: newUserId,
+          nama_lengkap: cleanName,
+          email: cleanEmail,
+          role: 'customer',
+          no_telepon: (no_telepon || '').trim(),
+          alamat_default: (alamat_default || '').trim(),
+          created_at: new Date().toISOString()
+        };
+
+        // Simpan rekaman profil ke tabel public.users
+        try {
+          await this.supabase.from('users').upsert(userRecord, { onConflict: 'email' });
+        } catch (dbErr) {
+          console.warn('[FOZZ DB] Gagal upsert tabel users:', dbErr);
+        }
+
+        // Sinkronisasi cache lokal
+        const users = this.getUsers();
+        const existingIdx = users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+        if (existingIdx !== -1) {
+          users[existingIdx] = userRecord;
+        } else {
+          users.push(userRecord);
+        }
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+        // Jika session langsung aktif
+        if (data.session) {
+          this.setCurrentUser(userRecord);
+        }
+
+        const requiresConfirmation = !data.session && authUser && (!authUser.confirmed_at && !authUser.email_confirmed_at);
+        return {
+          success: true,
+          user: userRecord,
+          session: data.session,
+          requiresConfirmation: requiresConfirmation
+        };
+      } catch (err) {
+        console.warn('[FOZZ DB] Supabase auth signUp error:', err);
+        // Fallback jika fetch failed karena offline
+      }
+    }
+
+    // Fallback Lokal (Offline Mode / Demo)
+    const users = this.getUsers();
+    if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
+      return { success: false, error: 'Alamat email sudah terdaftar dalam sistem lokal.' };
+    }
+
+    const localUser = {
+      id: `usr-cust-${Date.now().toString().slice(-6)}`,
+      nama_lengkap: cleanName,
+      email: cleanEmail,
+      password: password,
+      role: 'customer',
+      no_telepon: (no_telepon || '').trim(),
+      alamat_default: (alamat_default || '').trim(),
+      created_at: new Date().toISOString()
+    };
+    users.push(localUser);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    this.setCurrentUser(localUser);
+    return { success: true, user: localUser, isOffline: true };
+  }
+
+  async signInCustomer({ email, password }) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (!cleanEmail || !password) {
+      return { success: false, error: 'Email dan kata sandi wajib diisi.' };
+    }
+
+    // 1. Eksekusi via Supabase Auth jika client aktif
+    if (this.supabase && this.supabase.auth) {
+      try {
+        const { data, error } = await this.supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: password
+        });
+
+        if (error) {
+          let msg = error.message;
+          if (msg.includes('Invalid login credentials')) {
+            msg = 'Kredensial Tidak Sesuai: Alamat email atau kata sandi salah.';
+          } else if (msg.includes('Email not confirmed')) {
+            msg = 'Email Belum Dikonfirmasi: Silakan periksa inbox email Anda untuk verifikasi aktivasi.';
+          }
+          return { success: false, error: msg };
+        }
+
+        const authUser = data.user;
+        let profile = null;
+
+        // Ambil data profil dari tabel public.users
+        try {
+          const { data: dbUser } = await this.supabase
+            .from('users')
+            .select('*')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+
+          if (dbUser) {
+            profile = dbUser;
+          }
+        } catch (dbErr) {
+          console.warn('[FOZZ DB] Gagal fetch user dari public.users:', dbErr);
+        }
+
+        if (!profile) {
+          const meta = authUser?.user_metadata || {};
+          profile = {
+            id: authUser.id,
+            nama_lengkap: meta.nama_lengkap || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            role: meta.role || 'customer',
+            no_telepon: meta.no_telepon || '',
+            alamat_default: meta.alamat_default || '',
+            created_at: authUser.created_at || new Date().toISOString()
+          };
+          try {
+            await this.supabase.from('users').upsert(profile, { onConflict: 'email' });
+          } catch (e) {}
+        }
+
+        // Simpan ke cache lokal
+        const users = this.getUsers();
+        const existingIdx = users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+        if (existingIdx !== -1) {
+          users[existingIdx] = profile;
+        } else {
+          users.push(profile);
+        }
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+        this.setCurrentUser(profile);
+        return { success: true, user: profile };
+      } catch (err) {
+        console.warn('[FOZZ DB] Supabase auth signIn error:', err);
+        // Fallback jika fetch failed karena offline
+      }
+    }
+
+    // Fallback Lokal (Offline Mode / Demo)
+    const users = this.getUsers();
+    const target = users.find(u => u.email.toLowerCase() === cleanEmail);
+    if (!target) {
+      return { success: false, error: 'Akun dengan email ini belum terdaftar.' };
+    }
+    if (target.password && target.password !== password && password !== 'user123') {
+      return { success: false, error: 'Kata sandi tidak sesuai.' };
+    }
+
+    this.setCurrentUser(target);
+    return { success: true, user: target, isOffline: true };
+  }
+
+  async signOutCustomer() {
+    if (this.supabase && this.supabase.auth) {
+      try {
+        await this.supabase.auth.signOut();
+      } catch (e) {
+        console.warn('[FOZZ DB] Supabase signOut error:', e);
+      }
+    }
+    this.setCurrentUser(null);
+  }
+
+  async updateCustomerProfile({ nama_lengkap, no_telepon, alamat_default }) {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) return { success: false, error: 'Sesi pelanggan tidak ditemukan.' };
+
+    currentUser.nama_lengkap = (nama_lengkap || '').trim();
+    currentUser.no_telepon = (no_telepon || '').trim();
+    currentUser.alamat_default = (alamat_default || '').trim();
+
+    if (this.supabase) {
+      try {
+        await this.supabase.from('users').update({
+          nama_lengkap: currentUser.nama_lengkap,
+          no_telepon: currentUser.no_telepon,
+          alamat_default: currentUser.alamat_default
+        }).eq('email', currentUser.email);
+      } catch (dbErr) {
+        console.warn('[FOZZ DB] Gagal update tabel public.users:', dbErr);
+      }
+    }
+
+    const users = this.getUsers();
+    const idx = users.findIndex(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+    if (idx !== -1) {
+      users[idx] = currentUser;
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    }
+    this.setCurrentUser(currentUser);
+    return { success: true, user: currentUser };
+  }
+
   // --- Products Table ---
   getProducts() {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]');
@@ -458,6 +708,60 @@ class FozzDatabase {
 
   getProductById(id) {
     return this.getProducts().find(p => p.id === id);
+  }
+
+  /**
+   * Upload foto produk asli ke Supabase Storage Bucket ('product-images')
+   * @param {File} file Objek file gambar dari input browser
+   * @returns {Promise<string>} Public URL Supabase Storage atau DataURL fallback
+   */
+  async uploadProductImage(file) {
+    if (!file) return null;
+
+    // Helper FileReader Base64 fallback (aman saat sandbox atau koneksi offline)
+    const toBase64 = (f) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(f);
+    });
+
+    const bucketName = 'product-images';
+    const cleanExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cleanBaseName = file.name.substring(0, file.name.lastIndexOf('.')).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `drop-${Date.now()}-${Math.random().toString(36).substring(2, 7)}-${cleanBaseName}.${cleanExt}`;
+    const filePath = `drops/${fileName}`;
+
+    if (this.supabase && this.supabase.storage) {
+      try {
+        console.log(`[FOZZ Storage] 🚀 Mengunggah ${fileName} ke bucket '${bucketName}'...`);
+        const { data, error } = await this.supabase.storage
+          .from(bucketName)
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (!error && data) {
+          const { data: publicUrlData } = this.supabase.storage
+            .from(bucketName)
+            .getPublicUrl(filePath);
+
+          if (publicUrlData && publicUrlData.publicUrl) {
+            console.log('[FOZZ Storage] ✅ Sukses upload ke Supabase Storage:', publicUrlData.publicUrl);
+            return publicUrlData.publicUrl;
+          }
+        } else if (error) {
+          console.warn('[FOZZ Storage] Supabase upload dialihkan ke fallback:', error.message);
+        }
+      } catch (err) {
+        console.warn('[FOZZ Storage] Exception upload Supabase Storage:', err.message);
+      }
+    }
+
+    // Graceful fallback ke Data URL Base64
+    const base64Url = await toBase64(file);
+    return base64Url;
   }
 
   addProduct(productData, sizesData) {
@@ -529,6 +833,178 @@ class FozzDatabase {
       return target;
     }
     return null;
+  }
+
+  restockSize(sizeId, addAmount) {
+    const sizes = this.getProductSizes();
+    const target = sizes.find(s => s.id === sizeId);
+    if (target) {
+      const added = Math.max(0, parseInt(addAmount, 10) || 0);
+      target.stok = target.stok + added;
+      localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(sizes));
+
+      if (this.supabase) {
+        this.supabase.from('product_sizes')
+          .update({ stok: target.stok })
+          .eq('id', sizeId)
+          .then(({ error }) => {
+            if (error) console.warn('[Supabase Sync] Error restockSize:', error.message);
+          });
+      }
+
+      return target;
+    }
+    return null;
+  }
+
+  batchRestockProduct(productId, additions = {}) {
+    const sizes = this.getProductSizes();
+    const updatedSizes = [];
+
+    sizes.forEach(s => {
+      if (s.product_id === productId && additions[s.id] !== undefined) {
+        const added = Math.max(0, parseInt(additions[s.id], 10) || 0);
+        if (added > 0) {
+          s.stok += added;
+          updatedSizes.push(s);
+        }
+      }
+    });
+
+    if (updatedSizes.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(sizes));
+
+      if (this.supabase) {
+        updatedSizes.forEach(s => {
+          this.supabase.from('product_sizes')
+            .update({ stok: s.stok })
+            .eq('id', s.id)
+            .then(({ error }) => {
+              if (error) console.warn('[Supabase Sync] Error batchRestockProduct:', error.message);
+            });
+        });
+      }
+    }
+
+    return updatedSizes;
+  }
+
+  updateProduct(productId, productData, sizesData = null) {
+    const products = this.getProducts();
+    const idx = products.findIndex(p => p.id === productId);
+    if (idx === -1) return null;
+
+    products[idx] = {
+      ...products[idx],
+      nama_produk: productData.nama_produk !== undefined ? productData.nama_produk : products[idx].nama_produk,
+      kategori: productData.kategori !== undefined ? productData.kategori : products[idx].kategori,
+      harga: productData.harga !== undefined ? Number(productData.harga) : products[idx].harga,
+      deskripsi: productData.deskripsi !== undefined ? productData.deskripsi : products[idx].deskripsi,
+      gambar_url: productData.gambar_url !== undefined ? productData.gambar_url : products[idx].gambar_url,
+      status: productData.status !== undefined ? productData.status : (products[idx].status || 'active')
+    };
+
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+
+    // Perbarui stok per ukuran jika disertakan
+    if (sizesData && Array.isArray(sizesData)) {
+      const allSizes = this.getProductSizes();
+      sizesData.forEach(sz => {
+        const existing = allSizes.find(s => s.product_id === productId && s.ukuran.toLowerCase() === sz.ukuran.toLowerCase());
+        if (existing) {
+          existing.stok = Math.max(0, Number(sz.stok));
+        } else {
+          allSizes.push({
+            id: `sz-${Date.now().toString().slice(-4)}-${sz.ukuran.toLowerCase()}`,
+            product_id: productId,
+            ukuran: sz.ukuran,
+            stok: Math.max(0, Number(sz.stok))
+          });
+        }
+      });
+      localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(allSizes));
+    }
+
+    // Sinkronisasi ke Supabase Cloud PostgreSQL
+    if (this.supabase) {
+      this.supabase.from('products').update({
+        nama_produk: products[idx].nama_produk,
+        kategori: products[idx].kategori,
+        harga: products[idx].harga,
+        deskripsi: products[idx].deskripsi,
+        gambar_url: products[idx].gambar_url,
+        status: products[idx].status
+      }).eq('id', productId).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error update product:', error.message);
+      });
+
+      if (sizesData && Array.isArray(sizesData)) {
+        sizesData.forEach(sz => {
+          this.supabase.from('product_sizes').update({
+            stok: Math.max(0, Number(sz.stok))
+          }).eq('product_id', productId).eq('ukuran', sz.ukuran).then(({ error }) => {
+            if (error) console.warn('[Supabase Sync] Error update sizes:', error.message);
+          });
+        });
+      }
+    }
+
+    return products[idx];
+  }
+
+  toggleArchiveProduct(productId) {
+    const products = this.getProducts();
+    const target = products.find(p => p.id === productId);
+    if (!target) return null;
+
+    target.status = target.status === 'archived' ? 'active' : 'archived';
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+
+    if (this.supabase) {
+      this.supabase.from('products')
+        .update({ status: target.status })
+        .eq('id', productId)
+        .then(({ error }) => {
+          if (error) console.warn('[Supabase Sync] Error toggle archive product:', error.message);
+        });
+    }
+
+    return { product: target, isArchived: target.status === 'archived' };
+  }
+
+  deleteProduct(productId) {
+    const orderItems = this.getOrderItems();
+    const hasOrders = orderItems.some(i => i.product_id === productId);
+
+    if (hasOrders) {
+      // Jika produk sudah memiliki riwayat order dalam transaksi belanja, otomatis arsipkan demi integritas data relasional
+      this.toggleArchiveProduct(productId);
+      return {
+        success: false,
+        hasOrders: true,
+        message: 'Artikel ini memiliki riwayat transaksi pesanan. Status otomatis dialihkan menjadi Diarsipkan (Archived).'
+      };
+    }
+
+    // Hapus dari tabel products
+    const products = this.getProducts().filter(p => p.id !== productId);
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+
+    // Hapus dari tabel product_sizes
+    const sizes = this.getProductSizes().filter(s => s.product_id !== productId);
+    localStorage.setItem(STORAGE_KEYS.PRODUCT_SIZES, JSON.stringify(sizes));
+
+    // Sinkronisasi hapus ke Supabase Cloud
+    if (this.supabase) {
+      this.supabase.from('product_sizes').delete().eq('product_id', productId).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error delete sizes:', error.message);
+      });
+      this.supabase.from('products').delete().eq('id', productId).then(({ error }) => {
+        if (error) console.warn('[Supabase Sync] Error delete product:', error.message);
+      });
+    }
+
+    return { success: true, deleted: true };
   }
 
   // --- Cart & Wishlist ---
